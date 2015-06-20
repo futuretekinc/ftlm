@@ -5,7 +5,9 @@ TIMESTAMP:=$(shell date "+%F %T%z")
 SOVERSION=1
 
 UNAME:=$(shell uname -s)
-CFLAGS?=-Wall -ggdb -O2 -I../build_package/libftm/include \
+CFLAGS?=-Wall -ggdb -O2 \
+	-DDEBUG \
+	-I../build_package/libftm/include \
 	-I../build_package/mosquitto/usr/local/include \
 	-I../build_package/libconfig-1.4.9/include \
 	-I../build_package/libnxjson/include

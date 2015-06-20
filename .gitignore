@@ -32,3 +32,4 @@ ftlm
 # Debug files
 *.dSYM/
 *.old
+tags
