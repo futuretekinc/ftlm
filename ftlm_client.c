@@ -21,44 +21,56 @@
 //static sem_t	xSemaphore;
 FTM_VOID_PTR FTLM_CLIENT_process(FTM_VOID_PTR pData);
 
-FTM_RET	FTLM_CLIENT_receiveFrame(FTLM_CTX_PTR pxCTX, FTLM_FRAME_PTR pFrame);
-FTM_RET	FTLM_CLIENT_sendFrame(FTLM_CTX_PTR pxCTX, FTLM_FRAME_PTR pFrame);
+FTM_RET	FTLM_CLIENT_receiveFrame(FTLM_CLIENT_PTR pClient, FTLM_FRAME_PTR pFrame);
+FTM_RET	FTLM_CLIENT_sendFrame(FTLM_CLIENT_PTR pClient, FTLM_FRAME_PTR pFrame);
 FTM_RET	FTLM_FRAME_dump(FTLM_FRAME_PTR pFrame);
 
-FTLM_CTX_PTR	FTLM_CLIENT_create(FTLM_SERVER_CFG_PTR pConfig, FTM_RET (*CB_recv)(void *, void *))
+FTLM_CLIENT_PTR	FTLM_CLIENT_create(FTLM_CLIENT_CFG_PTR pConfig)
 {
-	FTLM_CTX_PTR pxCTX = NULL;
+	FTLM_CLIENT_PTR pClient = NULL;
 
-	pxCTX = (FTLM_CTX_PTR)FTM_MEM_malloc(sizeof(FTLM_CTX));
-	if (pxCTX == NULL)
+	pClient = (FTLM_CLIENT_PTR)FTM_MEM_malloc(sizeof(FTLM_CLIENT));
+	if (pClient == NULL)
 	{
 		return	NULL;	
 	}
 
-	memset(pxCTX, 0, sizeof(FTLM_CTX));
-	memcpy(&pxCTX->xConfig, pConfig, sizeof(FTLM_SERVER_CFG));
+	memset(pClient, 0, sizeof(FTLM_CLIENT));
+	memcpy(&pClient->xConfig, pConfig, sizeof(FTLM_CLIENT_CFG));
 
 
-	return	pxCTX;
+	return	pClient;
 }
 
-FTM_RET	FTLM_CLIENT_start(FTLM_CTX_PTR pxCTX)
+FTM_RET	FTLM_CLIENT_destroy(FTLM_CLIENT_PTR pClient)
 {
-	if (pxCTX == NULL)
+	if (pClient->bRun)
+	{
+		FTLM_CLIENT_stop(pClient);	
+	}
+
+	FTM_MEM_free(pClient);
+
+	return	FTM_RET_OK;
+}
+
+FTM_RET	FTLM_CLIENT_start(FTLM_CLIENT_PTR pClient)
+{
+	if (pClient == NULL)
 	{
 		return	FTM_RET_ERROR;
 	}
 
-	if (pxCTX->hThread != 0)
+	if (pClient->hThread != 0)
 	{
 		return	FTM_RET_ERROR;	
 	}
 
-	pxCTX->bRun = 1;
+	pClient->bRun = 1;
 
-	if (pthread_create(&pxCTX->hThread, NULL, FTLM_CLIENT_process, pxCTX) != 0)
+	if (pthread_create(&pClient->hThread, NULL, FTLM_CLIENT_process, pClient) != 0)
 	{
-		pxCTX->bRun = 0;
+		pClient->bRun = 0;
 
 		return	FTM_RET_ERROR;	
 	}
@@ -66,16 +78,16 @@ FTM_RET	FTLM_CLIENT_start(FTLM_CTX_PTR pxCTX)
 	return	FTM_RET_OK;
 }
 
-FTM_RET	FTLM_stop(FTLM_CTX_PTR pxCTX)
+FTM_RET	FTLM_CLIENT_stop(FTLM_CLIENT_PTR pClient)
 {
-	if (pxCTX->hThread == 0)
+	if (pClient->hThread == 0)
 	{
 		return	FTM_RET_ERROR;	
 	}
 
-	pxCTX->bRun = 0;
+	pClient->bRun = 0;
 	
-	while(pxCTX->hThread != 0)
+	while(pClient->hThread != 0)
 	{
 		sleep(1);	
 	}
@@ -85,38 +97,38 @@ FTM_RET	FTLM_stop(FTLM_CTX_PTR pxCTX)
 
 FTM_RET	FTLM_CLIENT_connect
 (
-	FTLM_CTX_PTR	pxCTX
+	FTLM_CLIENT_PTR	pClient
 )
 {
 	struct	sockaddr_in	xServer;
 
-	ASSERT(pxCTX != NULL);
+	ASSERT(pClient != NULL);
 /*
 	struct hostent		*he;
-	he = gethostbyname(pxCTX->xConfig.pServerIP);
+	he = gethostbyname(pClient->xConfig.pServerIP);
 	if (he == NULL)
 	{
-		ERROR("Can't find host name [%s]\n", pxCTX->xConfig.pServerIP);
+		ERROR("Can't find host name [%s]\n", pClient->xConfig.pServerIP);
 		
 		return	FTM_RET_ERROR;	
 	}
 */
-	xServer.sin_addr.s_addr	= inet_addr(pxCTX->xConfig.pIP);//inet_lnaof(*((struct in_addr **)he->h_addr_list)[0]);
+	xServer.sin_addr.s_addr	= inet_addr(pClient->xConfig.xServer.pIP);//inet_lnaof(*((struct in_addr **)he->h_addr_list)[0]);
 	xServer.sin_family		= AF_INET;
-	xServer.sin_port		= htons(pxCTX->xConfig.usPort);
-	TRACE("Connecting ... [server = %s, Port = %d]\n", pxCTX->xConfig.pIP, pxCTX->xConfig.usPort);
+	xServer.sin_port		= htons(pClient->xConfig.xServer.usPort);
+	TRACE("Connecting ... [server = %s, Port = %d]\n", pClient->xConfig.xServer.pIP, pClient->xConfig.xServer.usPort);
 
-	pxCTX->hSocket = socket(AF_INET, SOCK_STREAM, 0);
-	if (pxCTX->hSocket == -1)
+	pClient->hSocket = socket(AF_INET, SOCK_STREAM, 0);
+	if (pClient->hSocket == -1)
 	{
 		ERROR("Could net create socket.\n");
 		return	FTM_RET_ERROR;
 	}
 
-	if (connect(pxCTX->hSocket, (struct sockaddr *)&xServer, sizeof(xServer)) < 0)
+	if (connect(pClient->hSocket, (struct sockaddr *)&xServer, sizeof(xServer)) < 0)
 	{
-		close(pxCTX->hSocket);
-		pxCTX->hSocket = 0;
+		close(pClient->hSocket);
+		pClient->hSocket = 0;
 
 		TRACE("Not connected.\n");
 
@@ -129,17 +141,17 @@ FTM_RET	FTLM_CLIENT_connect
 
 FTM_RET	FTLM_CLIENT_disconnect
 (
-	FTLM_CTX_PTR	pxCTX
+	FTLM_CLIENT_PTR	pClient
 )
 {
-	if ((pxCTX == NULL) || (pxCTX->hSocket <= 0))
+	if ((pClient == NULL) || (pClient->hSocket <= 0))
 	{
 		return  FTM_RET_CLIENT_HANDLE_INVALID;
 	}
 
-	pthread_kill(pxCTX->hThread, 1);
-	close(pxCTX->hSocket);
-	pxCTX->hSocket = 0;
+	pthread_kill(pClient->hThread, 1);
+	close(pClient->hSocket);
+	pClient->hSocket = 0;
 	
 	return  FTM_RET_OK;
 
@@ -147,50 +159,50 @@ FTM_RET	FTLM_CLIENT_disconnect
 
 FTM_VOID_PTR FTLM_CLIENT_process(FTM_VOID_PTR pData)
 {
-	FTLM_CTX_PTR  	pxCTX = (FTLM_CTX_PTR)pData;
+	FTLM_CLIENT_PTR  	pClient = (FTLM_CLIENT_PTR)pData;
 	FTM_RET			nRet = 0;
 	FTLM_FRAME	xFrame;
 
 
-	nRet = FTLM_CLIENT_connect(pxCTX);
-	while(pxCTX->bRun)
+	nRet = FTLM_CLIENT_connect(pClient);
+	while(pClient->bRun)
 	{
-		nRet = FTLM_CLIENT_receiveFrame(pxCTX, &xFrame);
+		nRet = FTLM_CLIENT_receiveFrame(pClient, &xFrame);
 		switch(nRet)
 		{
 		case	FTM_RET_COMM_DISCONNECTED:
 			{
 				sleep(20);	
-				nRet = FTLM_CLIENT_connect(pxCTX);
+				nRet = FTLM_CLIENT_connect(pClient);
 			}
 			break;
 
 		case	FTM_RET_OK:
 			{
-				if (pxCTX->CB_recv != NULL)
+				if (pClient->CB_message != NULL)
 				{
-					pxCTX->CB_recv(pxCTX, &xFrame);	
+					pClient->CB_message(pClient, &xFrame);	
 				}
 			}
 		}
 	}
 
-	pxCTX->hThread = 0;
+	pClient->hThread = 0;
 
-	FTLM_CLIENT_disconnect(pxCTX);
+	FTLM_CLIENT_disconnect(pClient);
 
-	TRACE("The session(%08x) was closed\n", pxCTX->hSocket);
-	close(pxCTX->hSocket);
-	pxCTX->hSocket = 0;
+	TRACE("The session(%08x) was closed\n", pClient->hSocket);
+	close(pClient->hSocket);
+	pClient->hSocket = 0;
  
  	return  0;
  }
 
-FTM_RET	FTLM_CLIENT_receiveFrame(FTLM_CTX_PTR pxCTX, FTLM_FRAME_PTR pFrame)
+FTM_RET	FTLM_CLIENT_receiveFrame(FTLM_CLIENT_PTR pClient, FTLM_FRAME_PTR pFrame)
 {
 	unsigned short nLen;
 
-	pFrame->nRecvLen = recv(pxCTX->hSocket, pFrame->pRecvBuff, sizeof(pFrame->pRecvBuff), 0);
+	pFrame->nRecvLen = recv(pClient->hSocket, pFrame->pRecvBuff, sizeof(pFrame->pRecvBuff), 0);
 	if (pFrame->nRecvLen <= 0)
 	{
 		TRACE("The connection is terminated.\n");
@@ -314,11 +326,11 @@ FTM_RET	FTLM_CLIENT_receiveFrame(FTLM_CTX_PTR pxCTX, FTLM_FRAME_PTR pFrame)
 	return	FTM_RET_OK;
 }
 
-FTM_RET	FTLM_CLIENT_sendFrame(FTLM_CTX_PTR pxCTX, FTLM_FRAME_PTR pFrame)
+FTM_RET	FTLM_CLIENT_sendFrame(FTLM_CLIENT_PTR pClient, FTLM_FRAME_PTR pFrame)
 {
 	int	i;
 
-	if (pxCTX == NULL || pxCTX->hSocket == 0)
+	if (pClient == NULL || pClient->hSocket == 0)
 	{
 		return	FTM_RET_ERROR;	
 	}
@@ -400,10 +412,19 @@ FTM_RET	FTLM_CLIENT_sendFrame(FTLM_CTX_PTR pxCTX, FTLM_FRAME_PTR pFrame)
 	}
 	printf("\n");	
 
-	if (send(pxCTX->hSocket, pFrame->pRespBuff, pFrame->nRespLen, 0) < 0)
+	if (send(pClient->hSocket, pFrame->pRespBuff, pFrame->nRespLen, 0) < 0)
 	{
 		return	FTM_RET_ERROR;	
 	}
+
+	return	FTM_RET_OK;
+}
+
+FTM_RET	FTLM_CLIENT_setMessageCB(FTLM_CLIENT_PTR pClient, FTLM_CLIENT_CB_MESSAGE pCB)
+{
+	ASSERT(pClient != NULL);
+
+	pClient->CB_message = pCB;
 
 	return	FTM_RET_OK;
 }

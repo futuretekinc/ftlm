@@ -17,8 +17,13 @@ FTM_RET FTLM_CFG_init(FTLM_CFG_PTR pCfg)
 		return  FTM_RET_INVALID_ARGUMENTS;
 	}
 
-	strcpy(pCfg->xServer.pIP, "127.0.0.1");
-	pCfg->xServer.usPort = 9877;
+	strcpy(pCfg->xMQTT.pClientID, "12345678");
+	strcpy(pCfg->xMQTT.pBrokerIP, "127.0.0.1");
+	pCfg->xMQTT.usPort = 1883;
+	pCfg->xMQTT.nKeepAlive = 60;
+
+	strcpy(pCfg->xClient.xServer.pIP, "127.0.0.1");
+	pCfg->xClient.xServer.usPort = 9877;
 
 	pCfg->pLightList = FTM_LIST_create();
 	FTM_LIST_setSeeker(pCfg->pLightList, FTLM_CFG_LIGHT_seeker);
@@ -41,6 +46,12 @@ FTM_RET FTLM_CFG_final(FTLM_CFG_PTR pCfg)
 		return  FTM_RET_INVALID_ARGUMENTS;
 	}
 
+	if (pCfg->ulRefCount > 0)
+	{
+		return	FTM_RET_OK;	
+	}
+
+	printf("%s\n", __func__);
 	FTM_LIST_iteratorStart(pCfg->pLightList);
 	while(FTM_LIST_iteratorNext(pCfg->pLightList, (void **)&pLight) == FTM_RET_OK)
 	{
@@ -65,6 +76,27 @@ FTM_RET FTLM_CFG_final(FTLM_CFG_PTR pCfg)
 	return	FTM_RET_OK;
 }
 
+FTM_RET	FTLM_CFG_reference(FTLM_CFG_PTR pCfg)
+{
+	ASSERT(pCfg != NULL);
+	
+	pCfg->ulRefCount++;
+
+	return	FTM_RET_OK;
+}
+
+FTM_RET	FTLM_CFG_unreference(FTLM_CFG_PTR pCfg)
+{
+	ASSERT(pCfg != NULL);
+
+	if (pCfg->ulRefCount > 0)
+	{
+		pCfg->ulRefCount--;
+	}
+
+	return	FTM_RET_OK;
+}
+
 FTM_RET FTLM_CFG_load(FTLM_CFG_PTR pCfg, FTM_CHAR_PTR pFileName)
 {
 	config_t            xCfg;
@@ -83,6 +115,36 @@ FTM_RET FTLM_CFG_load(FTLM_CFG_PTR pCfg, FTM_CHAR_PTR pFileName)
 			return  FTM_RET_CONFIG_LOAD_FAILED;
 	}
 
+	pSection = config_lookup(&xCfg, "mqtt");
+	if (pSection)
+	{
+		config_setting_t	*pIP;
+		config_setting_t	*pPort;
+		config_setting_t	*pKeepAlive;
+		
+		pIP = config_setting_get_member(pSection, "ip");
+		if (pIP != NULL)
+		{
+			strncpy(pCfg->xMQTT.pBrokerIP, config_setting_get_string(pIP), FTLM_SERVER_IP_LEN-1);	
+		}
+
+		pPort = config_setting_get_member(pSection, "port");
+		if (pPort != NULL)
+		{
+			pCfg->xMQTT.usPort = config_setting_get_int(pPort);
+		}
+
+		pKeepAlive = config_setting_get_member(pSection, "keepalive");
+		if (pKeepAlive != NULL)
+		{
+			pCfg->xMQTT.nKeepAlive = config_setting_get_int(pKeepAlive);
+		}
+	}
+	else
+	{
+		printf("can't find server section\n");	
+	}
+
 	pSection = config_lookup(&xCfg, "server");
 	if (pSection)
 	{
@@ -92,7 +154,7 @@ FTM_RET FTLM_CFG_load(FTLM_CFG_PTR pCfg, FTM_CHAR_PTR pFileName)
 		pIP = config_setting_get_member(pSection, "ip");
 		if (pIP != NULL)
 		{
-			strncpy(pCfg->xServer.pIP, config_setting_get_string(pIP), FTLM_SERVER_IP_LEN-1);	
+			strncpy(pCfg->xClient.xServer.pIP, config_setting_get_string(pIP), FTLM_SERVER_IP_LEN-1);	
 		}
 		else
 		{
@@ -102,7 +164,7 @@ FTM_RET FTLM_CFG_load(FTLM_CFG_PTR pCfg, FTM_CHAR_PTR pFileName)
 		pPort = config_setting_get_member(pSection, "port");
 		if (pPort != NULL)
 		{
-			pCfg->xServer.usPort = config_setting_get_int(pPort);
+			pCfg->xClient.xServer.usPort = config_setting_get_int(pPort);
 		}
 		else
 		{
@@ -629,15 +691,21 @@ FTM_RET	FTLM_CFG_print(FTLM_CFG_PTR pCfg)
 	FTLM_SWITCH_CFG_PTR	pSwitch;
 
 	printf("\n<Gateway Configuration>\n");
-	printf("%8s : %s\n", "ID", pCfg->pGatewayID);
+	printf("%12s : %s\n", "ID", pCfg->pGatewayID);
 
-	printf("\n<Network Configuratoin>\n");
-	printf("%8s : %s\n", "SERVER", pCfg->xServer.pIP);
-	printf("%8s : %d\n", "PORT", pCfg->xServer.usPort);
+	printf("\n<Server Configuratoin>\n");
+	printf("%12s : %s\n", "IP Address", pCfg->xClient.xServer.pIP);
+	printf("%12s : %d\n", "Port", pCfg->xClient.xServer.usPort);
+
+	printf("\n<MQTT Configuratoin>\n");
+	printf("%12s : %s\n", "Client ID", pCfg->xMQTT.pClientID);
+	printf("%12s : %s\n", "IP Address", pCfg->xMQTT.pBrokerIP);
+	printf("%12s : %d\n", "Port", pCfg->xMQTT.usPort);
+	printf("%12s : %d\n", "Keep Alive", pCfg->xMQTT.usPort);
 
 	printf("\n<Light Configuration>\n");
 	FTM_LIST_count(pCfg->pLightList, &ulCount);
-	printf("%8s : %lu\n", "count", ulCount);
+	printf("%12s : %lu\n", "Count", ulCount);
 
 	printf("%12s %12s %12s %12s %16s\n", "ID", "STATUS", "LEVEL", "DULATION", "NAME");
 	FTM_LIST_iteratorStart(pCfg->pLightList);
@@ -655,7 +723,7 @@ FTM_RET	FTLM_CFG_print(FTLM_CFG_PTR pCfg)
 
 	printf("\n<Group Configuration>\n");
 	FTM_LIST_count(pCfg->pGroupList, &ulCount);
-	printf("%8s : %lu\n", "count", ulCount);
+	printf("%12s : %lu\n", "count", ulCount);
 
 	printf("%12s %12s %12s %12s %16s %12s\n", "ID", "STATUS", "LEVEL", "DULATION", "NAME", "LIGHTS");
 	FTM_LIST_iteratorStart(pCfg->pGroupList);
@@ -686,7 +754,7 @@ FTM_RET	FTLM_CFG_print(FTLM_CFG_PTR pCfg)
 
 	printf("\n<Switch Configuration>\n");
 	FTM_LIST_count(pCfg->pSwitchList, &ulCount);
-	printf("%8s : %lu\n", "COUNT", ulCount);
+	printf("%12s : %lu\n", "Count", ulCount);
 
 	printf("%12s %16s %12s\n", "ID", "NAME", "GROUPS");
 	FTM_LIST_iteratorStart(pCfg->pSwitchList);

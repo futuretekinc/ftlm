@@ -35,7 +35,7 @@ ifeq ($(WITH_DOCS),yes)
 	MAKE_ALL:=$(MAKE_ALL) docs
 endif
 
-CROSS_COMPILE=arm-openwrt-linux-uclibcgnueabi-
+#CROSS_COMPILE=arm-openwrt-linux-uclibcgnueabi-
 CC=gcc
 INSTALL?=install
 prefix=/home/xtra/work/cortina/build_package/ftlm
