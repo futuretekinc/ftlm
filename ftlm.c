@@ -8,6 +8,7 @@
 #include "ftm_mqtt.h"
 #include "ftlm_config.h"
 #include "ftlm_client.h"
+#include "ftlm_server.h"
 #include "ftlm_object.h"
 #include "ftlm_msg.h"
 #include "nxjson.h"
@@ -20,6 +21,7 @@ static FTM_RET 	FTLM_CMD_groupCtrl(FTLM_GROUP_PTR pGroup, FTM_ULONG ulCmd, FTM_U
 static FTM_RET	FTLM_CMD_lightCtrl(FTLM_LIGHT_PTR pLight, FTM_ULONG ulCmd, FTM_ULONG ulLevel, FTM_ULONG ulTime);
 
 extern char * program_invocation_short_name;
+static FTLM_SERVER_PTR	pServer = NULL;
 static FTLM_CLIENT_PTR	pClient = NULL;
 static FTM_MQTT_PTR		pMQTT = NULL;	
 
@@ -90,28 +92,8 @@ int main(int nArgc, char *pArgs[])
 
 FTM_VOID_PTR	FTLM_process(FTM_VOID_PTR pData)
 {
-	FTM_INT				nRet;
-	FTM_INT				hSocket;
-	struct sockaddr_in	xServer, xClient;
 	FTLM_CFG_PTR		pConfig = (FTLM_CFG_PTR)pData;
-
-	hSocket = socket(AF_INET, SOCK_STREAM, 0);
-	if (hSocket == -1)
-	{
-		ERROR("Could not create socket\n");
-		return	0;	
-	}
-
-	xServer.sin_family		= AF_INET;
-	xServer.sin_addr.s_addr = INADDR_ANY;
-	xServer.sin_port		= htons(8888);
-
-	nRet = bind(hSocket, (struct sockaddr *)&xServer, sizeof(xServer));
-	if (nRet < 0)
-	{
-		ERROR("bind failed.[%d]\n", nRet);
-		return	0;
-	}
+	FTLM_SERVER_CFG		xServerCfg = { .xMemKey = 1234, .ulSlotCount = 10};
 
 	FTLM_OBJ_init(pConfig);
 
@@ -130,35 +112,33 @@ FTM_VOID_PTR	FTLM_process(FTM_VOID_PTR pData)
 	}
 	FTLM_CLIENT_setMessageCB(pClient, FTLM_CLIENT_messageCB);
 
-	FTM_MQTT_start(pMQTT);
-	FTLM_CLIENT_start(pClient);
-
-	listen(hSocket, 3);
-
-	while(1)
+	
+	pServer = FTLM_SERVER_create(&xServerCfg);
+	if (pServer == NULL)
 	{
-		FTM_INT	hClient;
-		FTM_INT	nValue;
-		FTM_INT	nSockAddrInLen = sizeof(struct sockaddr_in);
-
-		MESSAGE("Waiting for connections ...[%d]\n", nValue);
-		hClient = accept(hSocket, (struct sockaddr *)&xClient, (socklen_t *)&nSockAddrInLen);
-		if (hClient != 0)
-		{
-			pthread_t xPthread;
-
-			TRACE("Accept new connection. [%s:%d]\n", inet_ntoa(xClient.sin_addr), ntohs(xClient.sin_port));
-		}
-
+		FTLM_CLIENT_destroy(pClient);
+		FTM_MQTT_destroy(pMQTT);
+	
 	}
 
+	FTM_MQTT_start(pMQTT);
+	FTLM_CLIENT_start(pClient);
+	FTLM_SERVER_start(pServer);
+
+	while(1);
+
+
+	FTLM_SERVER_stop(pServer);
 	FTLM_CLIENT_stop(pClient);
 	FTM_MQTT_stop(pMQTT);
 
+	FTLM_SERVER_destroy(pServer);
 	FTLM_CLIENT_destroy(pClient);
 	FTM_MQTT_destroy(pMQTT);
 
 	FTLM_OBJ_final();
+
+	return	0;
 }
 
 static void FTLM_MQTT_messageCB(void *pObj, const struct mosquitto_message *pMessage)
@@ -461,7 +441,6 @@ FTM_RET	FTLM_CMD_lightCtrl(FTLM_LIGHT_PTR pLight, FTM_ULONG ulCmd, FTM_ULONG ulL
 {
 	char			pTopic[256];
 	char			pMessage[256];
-	FTM_CHAR_PTR	pCmd;
 	int				nMessage;
 
 	sprintf(pTopic, "/v/a/g/%s/s/%08x/req", pMQTT->xConfig.pClientID, (unsigned int)pLight->xCommon.xID);
@@ -470,7 +449,7 @@ FTM_RET	FTLM_CMD_lightCtrl(FTLM_LIGHT_PTR pLight, FTM_ULONG ulCmd, FTM_ULONG ulL
 	case	0: 		nMessage = sprintf(pMessage, "{\"cmd\":\"off\"}"); 	break;
 	case	255:	nMessage = sprintf(pMessage, "{\"cmd\":\"on\"}");	break;
 	default:		nMessage = sprintf(pMessage, "{\"cmd\":\"%s\", \"level\":%lu, \"dulation\":%lu}", 
-									pCmd, ulLevel, ulTime);
+									"dimm", ulLevel, ulTime);
 	}
 
 	FTM_MQTT_publish(pMQTT, pTopic, pMessage, nMessage, 0);

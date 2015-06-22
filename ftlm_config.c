@@ -704,7 +704,7 @@ FTM_RET	FTLM_CFG_print(FTLM_CFG_PTR pCfg)
 	printf("%12s : %d\n", "Keep Alive", pCfg->xMQTT.usPort);
 
 	printf("\n<Light Configuration>\n");
-	FTM_LIST_count(pCfg->pLightList, &ulCount);
+	ulCount = FTM_LIST_count(pCfg->pLightList);
 	printf("%12s : %lu\n", "Count", ulCount);
 
 	printf("%12s %12s %12s %12s %16s\n", "ID", "STATUS", "LEVEL", "DULATION", "NAME");
@@ -722,7 +722,7 @@ FTM_RET	FTLM_CFG_print(FTLM_CFG_PTR pCfg)
 	}
 
 	printf("\n<Group Configuration>\n");
-	FTM_LIST_count(pCfg->pGroupList, &ulCount);
+	ulCount = FTM_LIST_count(pCfg->pGroupList);
 	printf("%12s : %lu\n", "count", ulCount);
 
 	printf("%12s %12s %12s %12s %16s %12s\n", "ID", "STATUS", "LEVEL", "DULATION", "NAME", "LIGHTS");
@@ -741,7 +741,7 @@ FTM_RET	FTLM_CFG_print(FTLM_CFG_PTR pCfg)
 		}
 		printf(" %12lu %12lu %16s ", 	pGroup->ulLevel, pGroup->ulTime, pGroup->pName);
 
-		FTM_LIST_count(pGroup->pLightList, &ulCount);
+		ulCount = FTM_LIST_count(pGroup->pLightList);
 		printf(" %4lu ", ulCount);
 
 		FTM_LIST_iteratorStart(pGroup->pLightList);
@@ -753,7 +753,7 @@ FTM_RET	FTLM_CFG_print(FTLM_CFG_PTR pCfg)
 	}
 
 	printf("\n<Switch Configuration>\n");
-	FTM_LIST_count(pCfg->pSwitchList, &ulCount);
+	ulCount = FTM_LIST_count(pCfg->pSwitchList);
 	printf("%12s : %lu\n", "Count", ulCount);
 
 	printf("%12s %16s %12s\n", "ID", "NAME", "GROUPS");
@@ -764,7 +764,7 @@ FTM_RET	FTLM_CFG_print(FTLM_CFG_PTR pCfg)
 		FTM_ULONG		ulCount;
 
 		printf("    %08x %16s", (unsigned int)pSwitch->xID, pSwitch->pName);
-		FTM_LIST_count(pSwitch->pGroupList, &ulCount);
+		ulCount = FTM_LIST_count(pSwitch->pGroupList);
 		printf(" %4lu", ulCount);
 		FTM_LIST_iteratorStart(pSwitch->pGroupList);
 		while(FTM_LIST_iteratorNext(pSwitch->pGroupList, (FTM_VOID_PTR _PTR_)&xGroupID) == FTM_RET_OK)
@@ -779,15 +779,9 @@ FTM_RET	FTLM_CFG_print(FTLM_CFG_PTR pCfg)
 
 FTM_ULONG	FTLM_CFG_LIGHT_count(FTLM_CFG_PTR pCfg)
 {
-	FTM_ULONG	ulCount;
 	ASSERT(pCfg != NULL);
 
-	if (FTM_LIST_count(pCfg->pLightList, &ulCount) != FTM_RET_OK)
-	{
-		return	0;
-	}
-
-	return	ulCount;	
+	return	FTM_LIST_count(pCfg->pLightList);
 }
 
 FTLM_LIGHT_CFG_PTR FTLM_CFG_LIGHT_get(FTLM_CFG_PTR pCfg, FTM_ID xLightID)
@@ -820,16 +814,9 @@ FTLM_LIGHT_CFG_PTR FTLM_CFG_LIGHT_getAt(FTLM_CFG_PTR pCfg, FTM_ULONG ulIndex)
 
 FTM_ULONG	FTLM_CFG_GROUP_count(FTLM_CFG_PTR pCfg)
 {
-	FTM_ULONG	ulCount;
-
 	ASSERT(pCfg != NULL);
 
-	if (FTM_LIST_count(pCfg->pGroupList, &ulCount) != FTM_RET_OK)
-	{
-		return	0;	
-	}
-
-	return	ulCount;
+	return	FTM_LIST_count(pCfg->pGroupList);
 }
 
 FTLM_GROUP_CFG_PTR FTLM_CFG_GROUP_create(FTLM_CFG_PTR pCfg, FTM_ID xGroupID)
@@ -893,16 +880,9 @@ FTLM_GROUP_CFG_PTR FTLM_CFG_GROUP_getAt(FTLM_CFG_PTR pCfg, FTM_ULONG ulIndex)
 
 FTM_ULONG	FTLM_CFG_SWITCH_count(FTLM_CFG_PTR pCfg)
 {
-	FTM_ULONG	ulCount;
-
 	ASSERT(pCfg != NULL);
 
-	if (FTM_LIST_count(pCfg->pSwitchList, &ulCount) != FTM_RET_OK)
-	{
-		return	0;	
-	}
-
-	return	ulCount;
+	return	FTM_LIST_count(pCfg->pSwitchList);
 }
 
 FTLM_SWITCH_CFG_PTR FTLM_CFG_SWITCH_get(FTLM_CFG_PTR pCfg, FTM_ID xSwitchID)

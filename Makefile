@@ -5,7 +5,8 @@ include ./config.mk
 LIB_OBJS=ftlm_config.o\
 		ftlm_client.o\
 		ftlm_object.o\
-		ftlm_msg.o
+		ftlm_msg.o\
+		ftlm_server.o
 
 all : libftlm.a ftlm
 
@@ -28,6 +29,9 @@ ftlm_object.o : ftlm_object.c ftlm_object.h
 	${CROSS_COMPILE}$(CC) $(LIB_CFLAGS) -c $< -o $@
 
 ftlm_msg.o : ftlm_msg.c ftlm_msg.h
+	${CROSS_COMPILE}$(CC) $(LIB_CFLAGS) -c $< -o $@
+
+ftlm_server.o : ftlm_server.c ftlm_server.h
 	${CROSS_COMPILE}$(CC) $(LIB_CFLAGS) -c $< -o $@
 
 install : all
