@@ -14,8 +14,10 @@ typedef	struct
 	FTM_BOOL	bReserved;
 	FTM_BOOL	bReq;
 	FTM_BOOL	bResp;
-	FTM_BYTE	pToServer[FTLM_MSG_FRAME_SIZE];
-	FTM_BYTE	pToClient[FTLM_MSG_FRAME_SIZE];
+	FTM_ULONG	ulReqBuffLen;
+	FTM_BYTE	pReqBuff[FTLM_MSG_FRAME_SIZE];
+	FTM_ULONG	ulRespBuffLen;
+	FTM_BYTE	pRespBuff[FTLM_MSG_FRAME_SIZE];
 }	FTLM_MSG_SLOT, _PTR_ FTLM_MSG_SLOT_PTR;
 
 typedef struct
