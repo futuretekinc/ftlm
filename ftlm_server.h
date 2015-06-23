@@ -3,7 +3,7 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include "ftm.h"
-#include "ftlm_msg.h"
+#include "ftlm_client_msg.h"
 #include "ftlm_config.h"
 #define	FTLM_MSG_FRAME_SIZE	2048
 
@@ -45,7 +45,7 @@ FTM_RET			FTLM_SERVER_destroy(FTLM_SERVER_PTR pClient);
 FTM_RET			FTLM_SERVER_start(FTLM_SERVER_PTR	pClient);
 FTM_RET			FTLM_SERVER_stop(FTLM_SERVER_PTR	pClient);
 
-FTM_RET			FTLM_SERVER_sendFrame(FTLM_SERVER_PTR pClient, FTLM_FRAME_PTR pFrame);
+//FTM_RET			FTLM_SERVER_sendFrame(FTLM_SERVER_PTR pClient, FTLM_FRAME_PTR pFrame);
 
 FTM_RET			FTLM_SERVER_setMessageCB(FTLM_SERVER_PTR pClient, FTLM_SERVER_CB_MESSAGE pCB);
 #endif

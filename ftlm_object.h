@@ -17,7 +17,8 @@ typedef	struct
 
 	FTM_CHAR			pGatewayID[FTM_GATEWAY_ID_LEN + 1];
 	
-	FTLM_LIGHT_STATUS	xStatus;
+	
+	FTM_ULONG			ulCmd;
 	FTM_ULONG			ulLevel;
 	FTM_ULONG			ulTime;
 }	FTLM_LIGHT, _PTR_ FTLM_LIGHT_PTR;
@@ -26,7 +27,7 @@ typedef	struct
 {
 	FTLM_OBJECT			xCommon;
 
-	FTLM_LIGHT_STATUS	xStatus;
+	FTM_ULONG			ulCmd;
 	FTM_ULONG			ulLevel;
 	FTM_ULONG			ulTime;
 
@@ -54,12 +55,14 @@ FTLM_SWITCH_PTR	FTLM_OBJ_getSwitch(FTM_ID xID);
 FTLM_SWITCH_PTR	FTLM_OBJ_getSwitchAt(FTM_ULONG ulIndex);
 
 FTLM_LIGHT_PTR	FTLM_LIGHT_create(FTLM_LIGHT_CFG_PTR pConfig);
+FTM_RET			FTLM_LIGHT_set(FTM_ID xID, unsigned char nCmd, unsigned char nLevel, unsigned char nDulationTime);
 
 FTLM_GROUP_PTR	FTLM_GROUP_create(FTLM_GROUP_CFG_PTR pConfig);
 FTM_ULONG		FTLM_GROUP_getLightCount(FTLM_GROUP_PTR pGroup);
 FTLM_LIGHT_PTR 	FTLM_GROUP_getLight(FTLM_GROUP_PTR pGroup, FTM_ID xID);
 FTLM_LIGHT_PTR 	FTLM_GROUP_getLightAt(FTLM_GROUP_PTR pGroup, FTM_ULONG ulIndex);
 FTM_RET			FTLM_GROUP_addLight(FTLM_GROUP_PTR pGroup, FTM_ID xID);
+FTM_RET 		FTLM_GROUP_set(FTM_ID xID, unsigned char nCmd, unsigned char nLevel, unsigned char nDimmingTime);
 
 FTLM_SWITCH_PTR	FTLM_SWITCH_create(FTLM_SWITCH_CFG_PTR pConfig);
 FTM_ULONG		FTLM_SWITCH_getGroupCount(FTLM_SWITCH_PTR pSwitch);
@@ -67,8 +70,6 @@ FTLM_GROUP_PTR 	FTLM_SWITCH_getGroup(FTLM_SWITCH_PTR pSwitch, FTM_ID xID);
 FTLM_GROUP_PTR 	FTLM_SWITCH_getGroupAt(FTLM_SWITCH_PTR pSwitch, FTM_ULONG ulIndex);
 FTM_RET			FTLM_SWITCH_addGroup(FTLM_SWITCH_PTR pSwitch, FTM_ID xID);
 
-FTM_RET FTLM_GROUP_set(FTM_ID xID, unsigned char nCmd, unsigned char nLevel, unsigned char nDimmingTime);
-FTM_RET	FTLM_LIGHT_set(FTM_ID xID, unsigned char nCmd, unsigned char nLevel, unsigned char nDulationTime);
 
 #endif
 

@@ -10,15 +10,35 @@
 #include "ftlm_client.h"
 #include "ftlm_server.h"
 #include "ftlm_object.h"
-#include "ftlm_msg.h"
+#include "ftlm_client_msg.h"
 #include "nxjson.h"
 
 static FTM_VOID_PTR	FTLM_process(FTM_VOID_PTR pData);
 static void 	FTLM_MQTT_messageCB(void *pObj, const struct mosquitto_message *pMessage);
 static FTM_RET	FTLM_CLIENT_messageCB(void *pObj, void *pParam);
 static FTM_VOID	FTLM_usage(FTM_CHAR_PTR pAppName);
-static FTM_RET 	FTLM_CMD_groupCtrl(FTLM_GROUP_PTR pGroup, FTM_ULONG ulCmd, FTM_ULONG ulLevel, FTM_ULONG ulTime);
-static FTM_RET	FTLM_CMD_lightCtrl(FTLM_LIGHT_PTR pLight, FTM_ULONG ulCmd, FTM_ULONG ulLevel, FTM_ULONG ulTime);
+static FTM_RET 	FTLM_CLIENT_CMD_groupCtrl(FTLM_GROUP_PTR pGroup, FTM_ULONG ulCmd, FTM_ULONG ulLevel, FTM_ULONG ulTime);
+static FTM_RET	FTLM_CLIENT_CMD_lightCtrl(FTLM_LIGHT_PTR pLight, FTM_ULONG ulCmd, FTM_ULONG ulLevel, FTM_ULONG ulTime);
+
+FTM_DEBUG_CFG	_debugCfg = 
+{
+	.ulMode = MSG_ALL,
+	.xTrace =
+	{
+		.bToFile= FTM_FALSE,
+		.pPath	= "/var/log/ftlm/",
+		.pPrefix = "trace",
+		.bLine	= FTM_FALSE
+	},
+	.xError =
+	{
+		.bToFile= FTM_FALSE,
+		.pPath	= "/var/log/ftlm/",
+		.pPrefix = "error",
+		.bLine	= FTM_FALSE
+	},
+};
+
 
 extern char * program_invocation_short_name;
 static FTLM_SERVER_PTR	pServer = NULL;
@@ -59,6 +79,8 @@ int main(int nArgc, char *pArgs[])
 		}   
 	}   
 
+	FTM_DEBUG_configSet(&_debugCfg);
+
 	sprintf(pConfigFileName, "%s.conf", program_invocation_short_name);
 
 	FTM_MEM_init();
@@ -93,7 +115,7 @@ int main(int nArgc, char *pArgs[])
 FTM_VOID_PTR	FTLM_process(FTM_VOID_PTR pData)
 {
 	FTLM_CFG_PTR		pConfig = (FTLM_CFG_PTR)pData;
-	FTLM_SERVER_CFG		xServerCfg = { .xMemKey = 1234, .ulSlotCount = 10};
+	FTLM_SERVER_CFG		xServerCfg = { .xMemKey = 1114, .ulSlotCount = 10};
 
 	FTLM_OBJ_init(pConfig);
 
@@ -104,14 +126,16 @@ FTM_VOID_PTR	FTLM_process(FTM_VOID_PTR pData)
 	}
 	FTM_MQTT_setMessageCB(pMQTT, FTLM_MQTT_messageCB);
 
-	pClient = FTLM_CLIENT_create(&pConfig->xClient);
-	if (pClient == NULL)
+	if (pConfig->xClient.bEnable)
 	{
-		FTM_MQTT_destroy(pMQTT);
-		return	0;
+		pClient = FTLM_CLIENT_create(&pConfig->xClient);
+		if (pClient == NULL)
+		{
+			FTM_MQTT_destroy(pMQTT);
+			return	0;
+		}
+		FTLM_CLIENT_setMessageCB(pClient, FTLM_CLIENT_messageCB);
 	}
-	FTLM_CLIENT_setMessageCB(pClient, FTLM_CLIENT_messageCB);
-
 	
 	pServer = FTLM_SERVER_create(&xServerCfg);
 	if (pServer == NULL)
@@ -122,18 +146,27 @@ FTM_VOID_PTR	FTLM_process(FTM_VOID_PTR pData)
 	}
 
 	FTM_MQTT_start(pMQTT);
-	FTLM_CLIENT_start(pClient);
+	if (pClient != NULL)
+	{
+		FTLM_CLIENT_start(pClient);
+	}
 	FTLM_SERVER_start(pServer);
 
 	while(1);
 
 
 	FTLM_SERVER_stop(pServer);
-	FTLM_CLIENT_stop(pClient);
+	if (pClient != NULL)
+	{
+		FTLM_CLIENT_stop(pClient);
+	}
 	FTM_MQTT_stop(pMQTT);
 
 	FTLM_SERVER_destroy(pServer);
-	FTLM_CLIENT_destroy(pClient);
+	if (pClient != NULL)
+	{
+		FTLM_CLIENT_destroy(pClient);
+	}
 	FTM_MQTT_destroy(pMQTT);
 
 	FTLM_OBJ_final();
@@ -164,7 +197,7 @@ static void FTLM_MQTT_messageCB(void *pObj, const struct mosquitto_message *pMes
 	}
 	
 	nID = pItem->int_value;
-
+	printf("nID = %d\n", nID);
 finish:
 	nx_json_free(pRoot);
 }
@@ -172,22 +205,22 @@ finish:
 FTM_RET	FTLM_CLIENT_messageCB(void *pObj, void *pParam)
 {
 	FTLM_CLIENT_PTR 		pClient = (FTLM_CLIENT_PTR)pObj;
-	FTLM_FRAME_PTR 	pFrame = (FTLM_FRAME_PTR)pParam;
+	FTLM_CLIENT_FRAME_PTR 	pFrame = (FTLM_CLIENT_FRAME_PTR)pParam;
 
 	switch(pFrame->nCmd)
 	{
-	case	FTLM_CMD_RESET:
+	case	FTLM_CLIENT_CMD_RESET:
 		{
 			pFrame->nRet = 0;
 			FTLM_CLIENT_sendFrame(pClient, pFrame);	
 		}
 		break;
 
-	case	FTLM_CMD_GROUP_CTRL:
+	case	FTLM_CLIENT_CMD_GROUP_CTRL:
 		{
 			int	i;
-			int	nGroups = ((FTLM_GROUP_CTRL_PARAM_PTR)pFrame->pReqParam)->nGroups;
-			FTLM_GROUP_CTRL_PTR	pGroups = ((FTLM_GROUP_CTRL_PARAM_PTR)pFrame->pReqParam)->pGroups;
+			int	nGroups = ((FTLM_CLIENT_GROUP_CTRL_PARAM_PTR)pFrame->pReqParam)->nGroups;
+			FTLM_CLIENT_GROUP_CTRL_PTR	pGroups = ((FTLM_CLIENT_GROUP_CTRL_PARAM_PTR)pFrame->pReqParam)->pGroups;
 
 			for(i = 0 ; i < nGroups; i++)
 			{
@@ -200,17 +233,17 @@ FTM_RET	FTLM_CLIENT_messageCB(void *pObj, void *pParam)
 						return	FTM_RET_ERROR;	
 				}
 
-				FTLM_CMD_groupCtrl(pGroup, pGroups[i].nCmd, pGroups[i].nLevel, pGroups[i].nDimmingTime);
+				FTLM_CLIENT_CMD_groupCtrl(pGroup, pGroups[i].nCmd, pGroups[i].nLevel, pGroups[i].nDimmingTime);
 			}
 		}
 		break;
 
-	case	FTLM_CMD_LIGHT_CTRL:
+	case	FTLM_CLIENT_CMD_LIGHT_CTRL:
 		{
 			int	i;
 
-			int	nLights = ((FTLM_LIGHT_CTRL_PARAM_PTR)pFrame->pReqParam)->nLights;
-			FTLM_LIGHT_CTRL_PTR	pLights = ((FTLM_LIGHT_CTRL_PARAM_PTR)pFrame->pReqParam)->pLights;
+			int	nLights = ((FTLM_CLIENT_LIGHT_CTRL_PARAM_PTR)pFrame->pReqParam)->nLights;
+			FTLM_CLIENT_LIGHT_CTRL_PTR	pLights = ((FTLM_CLIENT_LIGHT_CTRL_PARAM_PTR)pFrame->pReqParam)->pLights;
 
 			for(i = 0 ; i < nLights ; i++)
 			{
@@ -223,16 +256,16 @@ FTM_RET	FTLM_CLIENT_messageCB(void *pObj, void *pParam)
 					return	FTM_RET_ERROR;	
 				}
 
-				FTLM_CMD_lightCtrl(pLight, pLights[i].nCmd, pLights[i].nLevel, pLights[i].nDulationTime);	
+				FTLM_CLIENT_CMD_lightCtrl(pLight, pLights[i].nCmd, pLights[i].nLevel, pLights[i].nDulationTime);	
 			}
 		}
 		break;
 
-	case	FTLM_CMD_GROUP_SET:
+	case	FTLM_CLIENT_CMD_GROUP_SET:
 		{
 			int	i, j;
-			unsigned char nSets = ((FTLM_GROUP_SET_PARAM_PTR)pFrame->pReqParam)->nSets;
-			FTLM_GROUP_SET_PTR	pSet = ((FTLM_GROUP_SET_PARAM_PTR)pFrame->pReqParam)->pSets;
+			unsigned char nSets = ((FTLM_CLIENT_GROUP_SET_PARAM_PTR)pFrame->pReqParam)->nSets;
+			FTLM_CLIENT_GROUP_SET_PTR	pSet = ((FTLM_CLIENT_GROUP_SET_PARAM_PTR)pFrame->pReqParam)->pSets;
 
 			for(i = 0 ; i < nSets ; i++)
 			{
@@ -247,16 +280,16 @@ FTM_RET	FTLM_CLIENT_messageCB(void *pObj, void *pParam)
 					}
 				}
 
-				pSet = (FTLM_GROUP_SET_PTR)((unsigned char *)pSet + 2 + pSet->nGroups);
+				pSet = (FTLM_CLIENT_GROUP_SET_PTR)((unsigned char *)pSet + 2 + pSet->nGroups);
 			}
 		}
 		break;
 
-	case	FTLM_CMD_SWITCH_GROUP_SET:
+	case	FTLM_CLIENT_CMD_SWITCH_GROUP_SET:
 		{
 			int	i, j;
-			unsigned char nSets = ((FTLM_SWITCH_GROUP_SET_PARAM_PTR)pFrame->pReqParam)->nSets;
-			FTLM_SWITCH_GROUP_SET_PTR	pSet = ((FTLM_SWITCH_GROUP_SET_PARAM_PTR)pFrame->pReqParam)->pSets;
+			unsigned char nSets = ((FTLM_CLIENT_SWITCH_GROUP_SET_PARAM_PTR)pFrame->pReqParam)->nSets;
+			FTLM_CLIENT_SWITCH_GROUP_SET_PTR	pSet = ((FTLM_CLIENT_SWITCH_GROUP_SET_PARAM_PTR)pFrame->pReqParam)->pSets;
 
 			for(i = 0 ; i < nSets ; i++)
 			{
@@ -270,16 +303,16 @@ FTM_RET	FTLM_CLIENT_messageCB(void *pObj, void *pParam)
 						FTLM_SWITCH_addGroup(pSwitch, pSet->pGroups[j]);
 					}
 				}
-				pSet = (FTLM_SWITCH_GROUP_SET_PTR)((unsigned char *)pSet + 2 + pSet->nGroups);
+				pSet = (FTLM_CLIENT_SWITCH_GROUP_SET_PTR)((unsigned char *)pSet + 2 + pSet->nGroups);
 			}
 		}
 		break;
 
-	case FTLM_CMD_GROUP_MAPPING_GET:
+	case FTLM_CLIENT_CMD_GROUP_MAPPING_GET:
 		{
 			FTLM_LIGHT_CFG_PTR				pLight;
-			FTLM_GROUP_MAPPING_PARAM_PTR	pParam = (FTLM_GROUP_MAPPING_PARAM_PTR)pFrame->pRespParam;
-			FTLM_GROUP_MAPPING_PTR		pMapping = pParam->pSets;
+			FTLM_CLIENT_GROUP_MAPPING_PARAM_PTR	pParam = (FTLM_CLIENT_GROUP_MAPPING_PARAM_PTR)pFrame->pRespParam;
+			FTLM_CLIENT_GROUP_MAPPING_PTR		pMapping = pParam->pSets;
 
 			pFrame->nRespParamLen = 1;
 
@@ -307,18 +340,18 @@ FTM_RET	FTLM_CLIENT_messageCB(void *pObj, void *pParam)
 				}
 
 				pParam->nSets++;
-				pMapping = (FTLM_GROUP_MAPPING_PTR)(((unsigned char *)pMapping) + sizeof(FTLM_GROUP_MAPPING) + pMapping->nGroups);
-				pFrame->nRespParamLen += sizeof(FTLM_GROUP_MAPPING) + pMapping->nGroups;
+				pMapping = (FTLM_CLIENT_GROUP_MAPPING_PTR)(((unsigned char *)pMapping) + sizeof(FTLM_CLIENT_GROUP_MAPPING) + pMapping->nGroups);
+				pFrame->nRespParamLen += sizeof(FTLM_CLIENT_GROUP_MAPPING) + pMapping->nGroups;
 			}
 			FTLM_CLIENT_sendFrame(pClient, pFrame);	
 		}
 		break;
 
-	case FTLM_CMD_SWITCH_MAPPING_GET:
+	case FTLM_CLIENT_CMD_SWITCH_MAPPING_GET:
 		{
 			FTLM_SWITCH_CFG_PTR				pSwitch;
-			FTLM_GROUP_MAPPING_PARAM_PTR	pParam = (FTLM_GROUP_MAPPING_PARAM_PTR)pFrame->pRespParam;
-			FTLM_GROUP_MAPPING_PTR		pMapping = pParam->pSets;
+			FTLM_CLIENT_GROUP_MAPPING_PARAM_PTR	pParam = (FTLM_CLIENT_GROUP_MAPPING_PARAM_PTR)pFrame->pRespParam;
+			FTLM_CLIENT_GROUP_MAPPING_PTR		pMapping = pParam->pSets;
 
 			pFrame->nRespParamLen = 1;
 
@@ -343,17 +376,17 @@ FTM_RET	FTLM_CLIENT_messageCB(void *pObj, void *pParam)
 				}
 
 				pParam->nSets++;
-				pMapping = (FTLM_GROUP_MAPPING_PTR)(((unsigned char *)pMapping) + sizeof(FTLM_GROUP_MAPPING) + pMapping->nGroups);
-				pFrame->nRespParamLen += sizeof(FTLM_GROUP_MAPPING) + pMapping->nGroups;
+				pMapping = (FTLM_CLIENT_GROUP_MAPPING_PTR)(((unsigned char *)pMapping) + sizeof(FTLM_CLIENT_GROUP_MAPPING) + pMapping->nGroups);
+				pFrame->nRespParamLen += sizeof(FTLM_CLIENT_GROUP_MAPPING) + pMapping->nGroups;
 			}
 			FTLM_CLIENT_sendFrame(pClient, pFrame);	
 		}
 		break;
 
-	case FTLM_CMD_GROUP_STATUS_GET:
+	case FTLM_CLIENT_CMD_GROUP_STATUS_GET:
 		{
 			FTM_ULONG			i, ulCount;
-			FTLM_GROUP_STATUS_PARAM_PTR	pParam = (FTLM_GROUP_STATUS_PARAM_PTR)pFrame->pRespParam;
+			FTLM_CLIENT_GROUP_STATUS_PARAM_PTR	pParam = (FTLM_CLIENT_GROUP_STATUS_PARAM_PTR)pFrame->pRespParam;
 
 			TRACE("%8s %8s %8s %8s\n", "ID", "STATUS", "LEVEL", "DIMMING");
 			pParam->nGroups = 0;
@@ -365,23 +398,23 @@ FTM_RET	FTLM_CLIENT_messageCB(void *pObj, void *pParam)
 				pGroup = FTLM_OBJ_getGroupAt(i);
 				if (pGroup != NULL)
 				{
-						TRACE("%08x %8d %8lu %16lu\n", (unsigned int)pGroup->xCommon.xID, pGroup->xStatus, pGroup->ulLevel, pGroup->ulTime); 
+						TRACE("%08x %8d %8lu %16lu\n", (unsigned int)pGroup->xCommon.xID, pGroup->ulCmd, pGroup->ulLevel, pGroup->ulTime); 
 						pParam->pGroups[pParam->nGroups].nID 			= pGroup->xCommon.xID;
-						pParam->pGroups[pParam->nGroups].nStatus		= pGroup->xStatus;
+						pParam->pGroups[pParam->nGroups].nCmd			= pGroup->ulCmd;
 						pParam->pGroups[pParam->nGroups].nLevel			= pGroup->ulLevel;
 						pParam->pGroups[pParam->nGroups].nDimmingTime 	= pGroup->ulTime;
 						pParam->nGroups++;
 				}
 			}
-			pFrame->nRespParamLen = sizeof(FTLM_GROUP_STATUS_PARAM) + sizeof(FTLM_GROUP_STATUS) * pParam->nGroups;
+			pFrame->nRespParamLen = sizeof(FTLM_CLIENT_GROUP_STATUS_PARAM) + sizeof(FTLM_CLIENT_GROUP_STATUS) * pParam->nGroups;
 			FTLM_CLIENT_sendFrame(pClient, pFrame);	
 		}
 		break;
 
-	case FTLM_CMD_LIGHT_STATUS_GET:
+	case FTLM_CLIENT_CMD_LIGHT_STATUS_GET:
 		{
 			FTM_ULONG			i, ulCount;
-			FTLM_LIGHT_STATUS_PARAM_PTR	pParam = (FTLM_LIGHT_STATUS_PARAM_PTR)pFrame->pRespParam;
+			FTLM_CLIENT_LIGHT_STATUS_PARAM_PTR	pParam = (FTLM_CLIENT_LIGHT_STATUS_PARAM_PTR)pFrame->pRespParam;
 
 			TRACE("%8s %8s %8s %8s\n", "ID", "STATUS", "LEVEL", "DULATION");
 			pParam->nLights = 0;
@@ -393,16 +426,16 @@ FTM_RET	FTLM_CLIENT_messageCB(void *pObj, void *pParam)
 				pLight = FTLM_OBJ_getLightAt(i);
 				if (pLight != NULL)
 				{
-					TRACE("%08x %8d %8lu %16lu\n", (unsigned int)pLight->xCommon.xID, pLight->xStatus, pLight->ulLevel, pLight->ulTime); 
+					TRACE("%08x %8d %8lu %16lu\n", (unsigned int)pLight->xCommon.xID, pLight->ulCmd, pLight->ulLevel, pLight->ulTime); 
 					pParam->pLights[pParam->nLights].nID 			= pLight->xCommon.xID;
-					pParam->pLights[pParam->nLights].nStatus		= pLight->xStatus;
+					pParam->pLights[pParam->nLights].nCmd			= pLight->ulCmd;
 					pParam->pLights[pParam->nLights].nLevel			= pLight->ulLevel;
 					pParam->pLights[pParam->nLights].nDulationTime 	= pLight->ulTime;
 					pParam->nLights++;
 				}
 			}
 
-			pFrame->nRespParamLen = sizeof(FTLM_LIGHT_STATUS_PARAM) + sizeof(FTLM_LIGHT_STATUS) * pParam->nLights;
+			pFrame->nRespParamLen = sizeof(FTLM_CLIENT_LIGHT_STATUS_PARAM) + sizeof(FTLM_LIGHT_STATUS) * pParam->nLights;
 			FTLM_CLIENT_sendFrame(pClient, pFrame);	
 		}
 	}
@@ -411,7 +444,7 @@ FTM_RET	FTLM_CLIENT_messageCB(void *pObj, void *pParam)
 	return	FTM_RET_OK;
 }
 
-FTM_RET FTLM_CMD_groupCtrl(FTLM_GROUP_PTR pGroup, FTM_ULONG ulCmd, FTM_ULONG ulLevel, FTM_ULONG ulTime)
+FTM_RET FTLM_CLIENT_CMD_groupCtrl(FTLM_GROUP_PTR pGroup, FTM_ULONG ulCmd, FTM_ULONG ulLevel, FTM_ULONG ulTime)
 {
 	FTM_ULONG		i, ulCount;
 
@@ -425,11 +458,11 @@ FTM_RET FTLM_CMD_groupCtrl(FTLM_GROUP_PTR pGroup, FTM_ULONG ulCmd, FTM_ULONG ulL
 		pLight = FTLM_GROUP_getLightAt(pGroup, i);
 		if (pLight != NULL)
 		{
-			FTLM_CMD_lightCtrl(pLight, ulCmd, ulLevel, ulTime);	
+			FTLM_CLIENT_CMD_lightCtrl(pLight, ulCmd, ulLevel, ulTime);	
 		}
 	}
 
-	pGroup->xStatus	= ulCmd;
+	pGroup->ulCmd 	= ulCmd;
 	pGroup->ulLevel	= ulLevel;
 	pGroup->ulTime	= ulTime;
 
@@ -437,24 +470,18 @@ FTM_RET FTLM_CMD_groupCtrl(FTLM_GROUP_PTR pGroup, FTM_ULONG ulCmd, FTM_ULONG ulL
 	return	FTM_RET_OK;
 }
 
-FTM_RET	FTLM_CMD_lightCtrl(FTLM_LIGHT_PTR pLight, FTM_ULONG ulCmd, FTM_ULONG ulLevel, FTM_ULONG ulTime)
+FTM_RET	FTLM_CLIENT_CMD_lightCtrl(FTLM_LIGHT_PTR pLight, FTM_ULONG ulCmd, FTM_ULONG ulLevel, FTM_ULONG ulTime)
 {
 	char			pTopic[256];
 	char			pMessage[256];
 	int				nMessage;
 
 	sprintf(pTopic, "/v/a/g/%s/s/%08x/req", pMQTT->xConfig.pClientID, (unsigned int)pLight->xCommon.xID);
-	switch(ulCmd)
-	{
-	case	0: 		nMessage = sprintf(pMessage, "{\"cmd\":\"off\"}"); 	break;
-	case	255:	nMessage = sprintf(pMessage, "{\"cmd\":\"on\"}");	break;
-	default:		nMessage = sprintf(pMessage, "{\"cmd\":\"%s\", \"level\":%lu, \"dulation\":%lu}", 
-									"dimm", ulLevel, ulTime);
-	}
+	nMessage = sprintf(pMessage, "{\"cmd\":\"%lu\", \"level\":%lu, \"time\":%lu}", ulCmd, ulLevel, ulTime);
 
 	FTM_MQTT_publish(pMQTT, pTopic, pMessage, nMessage, 0);
 
-	pLight->xStatus	= ulCmd;
+	pLight->ulCmd	= ulCmd;
 	pLight->ulLevel	= ulLevel;
 	pLight->ulTime	= ulTime;
 

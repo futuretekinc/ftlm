@@ -11,7 +11,7 @@
 #include "ftm_types.h"
 #include "ftm_mem.h"
 #include "ftlm_client.h"
-#include "ftlm_msg.h"
+#include "ftlm_client_msg.h"
 
 #undef	TRACE
 #define	TRACE(...) fprintf(stderr, ## __VA_ARGS__)
@@ -21,9 +21,9 @@
 //static sem_t	xSemaphore;
 FTM_VOID_PTR FTLM_CLIENT_process(FTM_VOID_PTR pData);
 
-FTM_RET	FTLM_CLIENT_receiveFrame(FTLM_CLIENT_PTR pClient, FTLM_FRAME_PTR pFrame);
-FTM_RET	FTLM_CLIENT_sendFrame(FTLM_CLIENT_PTR pClient, FTLM_FRAME_PTR pFrame);
-FTM_RET	FTLM_FRAME_dump(FTLM_FRAME_PTR pFrame);
+FTM_RET	FTLM_CLIENT_receiveFrame(FTLM_CLIENT_PTR pClient, FTLM_CLIENT_FRAME_PTR pFrame);
+FTM_RET	FTLM_CLIENT_sendFrame(FTLM_CLIENT_PTR pClient, FTLM_CLIENT_FRAME_PTR pFrame);
+FTM_RET	FTLM_CLIENT_FRAME_dump(FTLM_CLIENT_FRAME_PTR pFrame);
 
 FTLM_CLIENT_PTR	FTLM_CLIENT_create(FTLM_CLIENT_CFG_PTR pConfig)
 {
@@ -161,7 +161,7 @@ FTM_VOID_PTR FTLM_CLIENT_process(FTM_VOID_PTR pData)
 {
 	FTLM_CLIENT_PTR  	pClient = (FTLM_CLIENT_PTR)pData;
 	FTM_RET			nRet = 0;
-	FTLM_FRAME	xFrame;
+	FTLM_CLIENT_FRAME	xFrame;
 
 
 	nRet = FTLM_CLIENT_connect(pClient);
@@ -198,7 +198,7 @@ FTM_VOID_PTR FTLM_CLIENT_process(FTM_VOID_PTR pData)
  	return  0;
  }
 
-FTM_RET	FTLM_CLIENT_receiveFrame(FTLM_CLIENT_PTR pClient, FTLM_FRAME_PTR pFrame)
+FTM_RET	FTLM_CLIENT_receiveFrame(FTLM_CLIENT_PTR pClient, FTLM_CLIENT_FRAME_PTR pFrame)
 {
 	unsigned short nLen;
 
@@ -212,59 +212,59 @@ FTM_RET	FTLM_CLIENT_receiveFrame(FTLM_CLIENT_PTR pClient, FTLM_FRAME_PTR pFrame)
 	nLen = ((unsigned short)pFrame->pRecvBuff[1] << 8) | ((unsigned short)pFrame->pRecvBuff[2]) ;
 
 	if ((pFrame->nRecvLen != (nLen + 5)) ||
-		(pFrame->pRecvBuff[0] != FTLM_MSG_STX) ||
-		(pFrame->pRecvBuff[pFrame->nRecvLen - 2] != FTLM_MSG_ETX1) ||
-		(pFrame->pRecvBuff[pFrame->nRecvLen - 1] != FTLM_MSG_ETX2))
+		(pFrame->pRecvBuff[0] != FTLM_CLIENT_MSG_STX) ||
+		(pFrame->pRecvBuff[pFrame->nRecvLen - 2] != FTLM_CLIENT_MSG_ETX1) ||
+		(pFrame->pRecvBuff[pFrame->nRecvLen - 1] != FTLM_CLIENT_MSG_ETX2))
 	{
-		FTLM_FRAME_dump(pFrame);
+		FTLM_CLIENT_FRAME_dump(pFrame);
 		return	FTM_RET_COMM_INVALID_FRAME;	
 	}
 
 	if (pFrame->nRecvLen == 19)
 	{
-		pFrame->nCmd 		= FTLM_CMD_RESET;
+		pFrame->nCmd 		= FTLM_CLIENT_CMD_RESET;
 		pFrame->pGatewayID 	= &pFrame->pRecvBuff[4];
 	}
 	else if (pFrame->nRecvLen > 19) 
 	{
 		pFrame->nCmd 		= ((unsigned short)pFrame->pRecvBuff[3] << 8) | (pFrame->pRecvBuff[14] << 4);
 		pFrame->pGatewayID 	= &pFrame->pRecvBuff[4];
-		pFrame->pReqParam	= (FTLM_REQUEST_PARAM_PTR)&pFrame->pRecvBuff[15];
+		pFrame->pReqParam	= (FTLM_CLIENT_REQUEST_PARAM_PTR)&pFrame->pRecvBuff[15];
 		pFrame->nRespLen    = 0;
-		pFrame->pRespParam	= (FTLM_RESPONSE_PARAM_PTR)&pFrame->pRespBuff[16];
+		pFrame->pRespParam	= (FTLM_CLIENT_RESPONSE_PARAM_PTR)&pFrame->pRespBuff[16];
 
 		switch(pFrame->nCmd)
 		{
-		case	FTLM_CMD_GROUP_CTRL:
+		case	FTLM_CLIENT_CMD_GROUP_CTRL:
 			{
-				if (pFrame->nRecvLen != 17 + sizeof(FTLM_GROUP_CTRL_PARAM) +  pFrame->pReqParam->xGroupCtrl.nGroups * sizeof(FTLM_GROUP_CTRL))
+				if (pFrame->nRecvLen != 17 + sizeof(FTLM_CLIENT_GROUP_CTRL_PARAM) +  pFrame->pReqParam->xGroupCtrl.nGroups * sizeof(FTLM_CLIENT_GROUP_CTRL))
 				{
 					return	FTM_RET_COMM_INVALID_FRAME;	
 				}
 			}
 			break;
 
-		case	FTLM_CMD_LIGHT_CTRL:
+		case	FTLM_CLIENT_CMD_LIGHT_CTRL:
 			{
-				if (pFrame->nRecvLen != 17 + sizeof(FTLM_LIGHT_CTRL_PARAM) + pFrame->pReqParam->xLightCtrl.nLights * sizeof(FTLM_LIGHT_CTRL))
+				if (pFrame->nRecvLen != 17 + sizeof(FTLM_CLIENT_LIGHT_CTRL_PARAM) + pFrame->pReqParam->xLightCtrl.nLights * sizeof(FTLM_CLIENT_LIGHT_CTRL))
 				{
 					return	FTM_RET_COMM_INVALID_FRAME;	
 				}
 			}
 			break;
 
-		case	FTLM_CMD_GROUP_SET:
+		case	FTLM_CLIENT_CMD_GROUP_SET:
 			{
 				int	i;
-				unsigned char nLen = 17 + sizeof(FTLM_GROUP_SET_PARAM);
+				unsigned char nLen = 17 + sizeof(FTLM_CLIENT_GROUP_SET_PARAM);
 
-				unsigned char nSets = ((FTLM_GROUP_SET_PARAM_PTR)pFrame->pReqParam)->nSets;
-				FTLM_GROUP_SET_PTR	pSet = ((FTLM_GROUP_SET_PARAM_PTR)pFrame->pReqParam)->pSets;
+				unsigned char nSets = ((FTLM_CLIENT_GROUP_SET_PARAM_PTR)pFrame->pReqParam)->nSets;
+				FTLM_CLIENT_GROUP_SET_PTR	pSet = ((FTLM_CLIENT_GROUP_SET_PARAM_PTR)pFrame->pReqParam)->pSets;
 
 				for(i = 0 ; i < nSets ; i++)
 				{
-					nLen += sizeof(FTLM_GROUP_SET) + pSet->nGroups;
-					pSet = (FTLM_GROUP_SET_PTR)((unsigned char *)pSet + 2 + pSet->nGroups);
+					nLen += sizeof(FTLM_CLIENT_GROUP_SET) + pSet->nGroups;
+					pSet = (FTLM_CLIENT_GROUP_SET_PTR)((unsigned char *)pSet + 2 + pSet->nGroups);
 				}
 
 				if (pFrame->nRecvLen != nLen)
@@ -275,18 +275,18 @@ FTM_RET	FTLM_CLIENT_receiveFrame(FTLM_CLIENT_PTR pClient, FTLM_FRAME_PTR pFrame)
 			}
 			break;
 
-		case	FTLM_CMD_SWITCH_GROUP_SET:
+		case	FTLM_CLIENT_CMD_SWITCH_GROUP_SET:
 			{
 				int	i;
-				unsigned char nLen = 17 + sizeof(FTLM_SWITCH_GROUP_SET_PARAM);
+				unsigned char nLen = 17 + sizeof(FTLM_CLIENT_SWITCH_GROUP_SET_PARAM);
 
-				unsigned char nSets = ((FTLM_SWITCH_GROUP_SET_PARAM_PTR)pFrame->pReqParam)->nSets;
-				FTLM_SWITCH_GROUP_SET_PTR	pSet = ((FTLM_SWITCH_GROUP_SET_PARAM_PTR)pFrame->pReqParam)->pSets;
+				unsigned char nSets = ((FTLM_CLIENT_SWITCH_GROUP_SET_PARAM_PTR)pFrame->pReqParam)->nSets;
+				FTLM_CLIENT_SWITCH_GROUP_SET_PTR	pSet = ((FTLM_CLIENT_SWITCH_GROUP_SET_PARAM_PTR)pFrame->pReqParam)->pSets;
 
 				for(i = 0 ; i < nSets ; i++)
 				{
-					nLen += sizeof(FTLM_SWITCH_GROUP_SET) + pSet->nGroups;
-					pSet = (FTLM_SWITCH_GROUP_SET_PTR)((unsigned char *)pSet + 2 + pSet->nGroups);
+					nLen += sizeof(FTLM_CLIENT_SWITCH_GROUP_SET) + pSet->nGroups;
+					pSet = (FTLM_CLIENT_SWITCH_GROUP_SET_PTR)((unsigned char *)pSet + 2 + pSet->nGroups);
 				}
 
 				if (pFrame->nRecvLen != nLen)
@@ -296,16 +296,16 @@ FTM_RET	FTLM_CLIENT_receiveFrame(FTLM_CLIENT_PTR pClient, FTLM_FRAME_PTR pFrame)
 			}
 			break;
 
-		case	FTLM_CMD_STATUS_GET:
+		case	FTLM_CLIENT_CMD_STATUS_GET:
 			{
 
-				if (pFrame->nRecvLen != 17 + sizeof(FTLM_STATUS_GET_PARAM))
+				if (pFrame->nRecvLen != 17 + sizeof(FTLM_CLIENT_STATUS_GET_PARAM))
 				{
-					FTLM_FRAME_dump(pFrame);
+					FTLM_CLIENT_FRAME_dump(pFrame);
 					return	FTM_RET_COMM_INVALID_FRAME;	
 				}
 
-				pFrame->nCmd |= (((FTLM_STATUS_GET_PARAM_PTR)pFrame->pReqParam)->nMode & 0x0F);
+				pFrame->nCmd |= (((FTLM_CLIENT_STATUS_GET_PARAM_PTR)pFrame->pReqParam)->nMode & 0x0F);
 			}
 			break;
 
@@ -315,18 +315,18 @@ FTM_RET	FTLM_CLIENT_receiveFrame(FTLM_CLIENT_PTR pClient, FTLM_FRAME_PTR pFrame)
 	}
 	else
 	{
-		pFrame->nCmd = FTLM_CMD_INVALID;
+		pFrame->nCmd = FTLM_CLIENT_CMD_INVALID;
 		printf("pFrame->nLen = %d\n", pFrame->nRecvLen);
 
 		return	FTM_RET_COMM_INVALID_LEN;	
 	}
 
-	FTLM_FRAME_dump(pFrame);
+	FTLM_CLIENT_FRAME_dump(pFrame);
 
 	return	FTM_RET_OK;
 }
 
-FTM_RET	FTLM_CLIENT_sendFrame(FTLM_CLIENT_PTR pClient, FTLM_FRAME_PTR pFrame)
+FTM_RET	FTLM_CLIENT_sendFrame(FTLM_CLIENT_PTR pClient, FTLM_CLIENT_FRAME_PTR pFrame)
 {
 	int	i;
 
@@ -337,61 +337,61 @@ FTM_RET	FTLM_CLIENT_sendFrame(FTLM_CLIENT_PTR pClient, FTLM_FRAME_PTR pFrame)
 
 	switch(pFrame->nCmd)
 	{
-	case	FTLM_CMD_RESET:
+	case	FTLM_CLIENT_CMD_RESET:
 		{
 			pFrame->nRespLen = 0;
-			pFrame->pRespBuff[pFrame->nRespLen++] = FTLM_MSG_STX;
+			pFrame->pRespBuff[pFrame->nRespLen++] = FTLM_CLIENT_MSG_STX;
 			pFrame->pRespBuff[pFrame->nRespLen++] = 0;
 			pFrame->pRespBuff[pFrame->nRespLen++] = 14;
-			memcpy(&pFrame->pRespBuff[pFrame->nRespLen], pFrame->pGatewayID, FTLM_GWID_LEN);
-			pFrame->nRespLen += FTLM_GWID_LEN;
+			memcpy(&pFrame->pRespBuff[pFrame->nRespLen], pFrame->pGatewayID, FTLM_CLIENT_GWID_LEN);
+			pFrame->nRespLen += FTLM_CLIENT_GWID_LEN;
 			pFrame->pRespBuff[pFrame->nRespLen++] = 0x55;
 			pFrame->pRespBuff[pFrame->nRespLen++] = 0xaa;
 			pFrame->pRespBuff[pFrame->nRespLen++] = 0xff;
 			pFrame->pRespBuff[pFrame->nRespLen++] = pFrame->nRet;
-			pFrame->pRespBuff[pFrame->nRespLen++] = FTLM_MSG_ETX1;
-			pFrame->pRespBuff[pFrame->nRespLen++] = FTLM_MSG_ETX2;
+			pFrame->pRespBuff[pFrame->nRespLen++] = FTLM_CLIENT_MSG_ETX1;
+			pFrame->pRespBuff[pFrame->nRespLen++] = FTLM_CLIENT_MSG_ETX2;
 		}
 		break;
 
-	case	FTLM_CMD_GROUP_CTRL:
-	case	FTLM_CMD_LIGHT_CTRL:
-	case	FTLM_CMD_GROUP_SET:
-	case	FTLM_CMD_SWITCH_GROUP_SET:
+	case	FTLM_CLIENT_CMD_GROUP_CTRL:
+	case	FTLM_CLIENT_CMD_LIGHT_CTRL:
+	case	FTLM_CLIENT_CMD_GROUP_SET:
+	case	FTLM_CLIENT_CMD_SWITCH_GROUP_SET:
 		{
 			pFrame->nRespLen = 0;
-			pFrame->pRespBuff[pFrame->nRespLen++] = FTLM_MSG_STX;
+			pFrame->pRespBuff[pFrame->nRespLen++] = FTLM_CLIENT_MSG_STX;
 			pFrame->pRespBuff[pFrame->nRespLen++] = 0;
 			pFrame->pRespBuff[pFrame->nRespLen++] = 14;
-			memcpy(&pFrame->pRespBuff[pFrame->nRespLen], pFrame->pGatewayID, FTLM_GWID_LEN);
-			pFrame->nRespLen += FTLM_GWID_LEN;
+			memcpy(&pFrame->pRespBuff[pFrame->nRespLen], pFrame->pGatewayID, FTLM_CLIENT_GWID_LEN);
+			pFrame->nRespLen += FTLM_CLIENT_GWID_LEN;
 			pFrame->pRespBuff[pFrame->nRespLen++] = (pFrame->nCmd >> 4) & 0x0F;
 			pFrame->pRespBuff[pFrame->nRespLen++] = 0xaa;
 			pFrame->pRespBuff[pFrame->nRespLen++] = 0x55;
 			pFrame->pRespBuff[pFrame->nRespLen++] = pFrame->nRet;
-			pFrame->pRespBuff[pFrame->nRespLen++] = FTLM_MSG_ETX1;
-			pFrame->pRespBuff[pFrame->nRespLen++] = FTLM_MSG_ETX2;
+			pFrame->pRespBuff[pFrame->nRespLen++] = FTLM_CLIENT_MSG_ETX1;
+			pFrame->pRespBuff[pFrame->nRespLen++] = FTLM_CLIENT_MSG_ETX2;
 		}
 		break;
 
-	case	FTLM_CMD_GROUP_MAPPING_GET:
-	case	FTLM_CMD_SWITCH_MAPPING_GET:
-	case	FTLM_CMD_GROUP_STATUS_GET:
-	case	FTLM_CMD_LIGHT_STATUS_GET:
+	case	FTLM_CLIENT_CMD_GROUP_MAPPING_GET:
+	case	FTLM_CLIENT_CMD_SWITCH_MAPPING_GET:
+	case	FTLM_CLIENT_CMD_GROUP_STATUS_GET:
+	case	FTLM_CLIENT_CMD_LIGHT_STATUS_GET:
 		{
 			int	nDataLen = pFrame->nRespParamLen + 13;
 			pFrame->nRespLen = 0;
-			pFrame->pRespBuff[pFrame->nRespLen++] = FTLM_MSG_STX;
+			pFrame->pRespBuff[pFrame->nRespLen++] = FTLM_CLIENT_MSG_STX;
 			pFrame->pRespBuff[pFrame->nRespLen++] = (nDataLen >> 8) & 0xFF;
 			pFrame->pRespBuff[pFrame->nRespLen++] = (nDataLen     ) & 0xFF;
-			memcpy(&pFrame->pRespBuff[pFrame->nRespLen], pFrame->pGatewayID, FTLM_GWID_LEN);
-			pFrame->nRespLen += FTLM_GWID_LEN;
+			memcpy(&pFrame->pRespBuff[pFrame->nRespLen], pFrame->pGatewayID, FTLM_CLIENT_GWID_LEN);
+			pFrame->nRespLen += FTLM_CLIENT_GWID_LEN;
 			pFrame->pRespBuff[pFrame->nRespLen++] = 0x04;
 			pFrame->pRespBuff[pFrame->nRespLen++] = 0xaa;
 			pFrame->pRespBuff[pFrame->nRespLen++] = 0x55;
 			pFrame->nRespLen += pFrame->nRespParamLen;
-			pFrame->pRespBuff[pFrame->nRespLen++] = FTLM_MSG_ETX1;
-			pFrame->pRespBuff[pFrame->nRespLen++] = FTLM_MSG_ETX2;
+			pFrame->pRespBuff[pFrame->nRespLen++] = FTLM_CLIENT_MSG_ETX1;
+			pFrame->pRespBuff[pFrame->nRespLen++] = FTLM_CLIENT_MSG_ETX2;
 		}
 		break;
 

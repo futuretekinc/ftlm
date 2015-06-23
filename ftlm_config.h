@@ -13,6 +13,7 @@
 
 typedef struct
 {
+	FTM_BOOL	bEnable;
 	struct
 	{
 		FTM_CHAR	pIP[FTLM_SERVER_IP_LEN];	
@@ -23,8 +24,8 @@ typedef struct
 typedef	enum FTLM_LIGHT_STATUS_ENUM
 {
 	FTLM_LIGHT_STATUS_OFF 	= 0,
-	FTLM_LIGHT_STATUS_ON 	= 1,
-	FTLM_LIGHT_STATUS_BLINK = 2
+	FTLM_LIGHT_STATUS_BLINK = 1,
+	FTLM_LIGHT_STATUS_ON 	= 255
 } FTLM_LIGHT_STATUS, _PTR_ FTLM_LIGHT_STATUS_PTR;
 
 typedef	struct
@@ -34,7 +35,7 @@ typedef	struct
 
 	FTM_CHAR			pGatewayID[FTM_GATEWAY_ID_LEN + 1];
 
-	FTLM_LIGHT_STATUS	xStatus;
+	FTM_ULONG			ulCmd;
 	FTM_ULONG			ulLevel;
 	FTM_ULONG			ulTime;
 }	FTLM_LIGHT_CFG, _PTR_ FTLM_LIGHT_CFG_PTR;
@@ -46,7 +47,7 @@ typedef	struct
 
 	FTM_LIST_PTR		pLightList;
 
-	FTLM_LIGHT_STATUS	xStatus;
+	FTM_ULONG			ulCmd;
 	FTM_ULONG			ulLevel;
 	FTM_ULONG			ulTime;
 }	FTLM_GROUP_CFG, _PTR_ FTLM_GROUP_CFG_PTR;
@@ -63,6 +64,7 @@ typedef	struct
 {
 	FTM_ULONG			ulRefCount;
 	FTM_CHAR			pGatewayID[11];
+	FTM_CHAR			pFileName[1024];
 
 	FTM_MQTT_CONFIG		xMQTT;
 	FTLM_CLIENT_CFG		xClient;

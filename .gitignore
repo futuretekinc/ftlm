@@ -33,3 +33,5 @@ ftlm
 *.dSYM/
 *.old
 tags
+ftlm_console
+ftlm

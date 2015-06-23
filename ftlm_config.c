@@ -51,7 +51,6 @@ FTM_RET FTLM_CFG_final(FTLM_CFG_PTR pCfg)
 		return	FTM_RET_OK;	
 	}
 
-	printf("%s\n", __func__);
 	FTM_LIST_iteratorStart(pCfg->pLightList);
 	while(FTM_LIST_iteratorNext(pCfg->pLightList, (void **)&pLight) == FTM_RET_OK)
 	{
@@ -148,9 +147,20 @@ FTM_RET FTLM_CFG_load(FTLM_CFG_PTR pCfg, FTM_CHAR_PTR pFileName)
 	pSection = config_lookup(&xCfg, "server");
 	if (pSection)
 	{
+		config_setting_t	*pEnable;
 		config_setting_t	*pIP;
 		config_setting_t	*pPort;
 		
+		pEnable = config_setting_get_member(pSection, "enable");
+		if (pEnable != NULL)
+		{
+			pCfg->xClient.bEnable = config_setting_get_int(pEnable);
+		}
+		else
+		{
+			pCfg->xClient.bEnable = FTM_FALSE;
+		}
+
 		pIP = config_setting_get_member(pSection, "ip");
 		if (pIP != NULL)
 		{
@@ -202,7 +212,7 @@ FTM_RET FTLM_CFG_load(FTLM_CFG_PTR pCfg, FTM_CHAR_PTR pFileName)
 				config_setting_t	*pID;
 				config_setting_t	*pGWID;
 				config_setting_t	*pName;
-				config_setting_t	*pStatus;
+				config_setting_t	*pCmd;
 				config_setting_t	*pLevel;
 				config_setting_t	*pTime;
 
@@ -241,10 +251,10 @@ FTM_RET FTLM_CFG_load(FTLM_CFG_PTR pCfg, FTM_CHAR_PTR pFileName)
 					strncpy(pLight->pName, config_setting_get_string(pName), FTLM_NAME_MAX);
 				}
 
-				pStatus = config_setting_get_member(pConfig, "status");
-				if (pStatus != NULL)
+				pCmd = config_setting_get_member(pConfig, "cmd");
+				if (pCmd != NULL)
 				{
-					pLight->xStatus = config_setting_get_int(pStatus);
+					pLight->ulCmd = config_setting_get_int(pCmd);
 				}
 
 				pLevel = config_setting_get_member(pConfig, "level");
@@ -273,7 +283,7 @@ FTM_RET FTLM_CFG_load(FTLM_CFG_PTR pCfg, FTM_CHAR_PTR pFileName)
 				config_setting_t	*pArray;
 				config_setting_t	*pID;
 				config_setting_t	*pName;
-				config_setting_t	*pStatus;
+				config_setting_t	*pCmd;
 				config_setting_t	*pLevel;
 				config_setting_t	*pTime;
 
@@ -337,10 +347,10 @@ FTM_RET FTLM_CFG_load(FTLM_CFG_PTR pCfg, FTM_CHAR_PTR pFileName)
 					strncpy(pGroup->pName, config_setting_get_string(pName), FTLM_NAME_MAX);
 				}
 
-				pStatus = config_setting_get_member(pConfig, "status");
-				if (pStatus != NULL)
+				pCmd = config_setting_get_member(pConfig, "cmd");
+				if (pCmd != NULL)
 				{
-					pGroup->xStatus = config_setting_get_int(pStatus);
+					pGroup->ulCmd = config_setting_get_int(pCmd);
 				}
 
 				pLevel = config_setting_get_member(pConfig, "level");
@@ -436,6 +446,7 @@ FTM_RET FTLM_CFG_load(FTLM_CFG_PTR pCfg, FTM_CHAR_PTR pFileName)
 		}
 	}
 
+	strncpy(pCfg->pFileName, pFileName, sizeof(pCfg->pFileName));
 	config_destroy(&xCfg);
 
 	return  FTM_RET_OK;
@@ -509,12 +520,12 @@ FTM_RET FTLM_CFG_save(FTLM_CFG_PTR pCfg, FTM_CHAR_PTR pFileName)
 			config_setting_set_string(pMember, pLight->pGatewayID);
 
 
-			pMember = config_setting_add(pLightConfig, "Status", CONFIG_TYPE_INT);
+			pMember = config_setting_add(pLightConfig, "cmd", CONFIG_TYPE_INT);
 			if (pMember == NULL)
 			{
 				goto error;
 			}
-			config_setting_set_int(pMember, pLight->xStatus);
+			config_setting_set_int(pMember, pLight->ulCmd);
 
 			pMember = config_setting_add(pLightConfig, "level", CONFIG_TYPE_INT);
 			if (pMember == NULL)
@@ -588,12 +599,12 @@ FTM_RET FTLM_CFG_save(FTLM_CFG_PTR pCfg, FTM_CHAR_PTR pFileName)
 				}
 			}
 
-			pMember = config_setting_add(pGroupConfig, "status", CONFIG_TYPE_INT);
+			pMember = config_setting_add(pGroupConfig, "cmd", CONFIG_TYPE_INT);
 			if (pMember == NULL)
 			{
 				goto error;
 			}
-			config_setting_set_int(pMember, pGroup->xStatus);
+			config_setting_set_int(pMember, pGroup->ulCmd);
 
 			pMember = config_setting_add(pGroupConfig, "level", CONFIG_TYPE_INT);
 			if (pMember == NULL)
@@ -690,88 +701,88 @@ FTM_RET	FTLM_CFG_print(FTLM_CFG_PTR pCfg)
 	FTLM_GROUP_CFG_PTR	pGroup;
 	FTLM_SWITCH_CFG_PTR	pSwitch;
 
-	printf("\n<Gateway Configuration>\n");
-	printf("%12s : %s\n", "ID", pCfg->pGatewayID);
+	TRACE("\n<Gateway Configuration>\n");
+	TRACE("%12s : %s\n", "ID", pCfg->pGatewayID);
 
-	printf("\n<Server Configuratoin>\n");
-	printf("%12s : %s\n", "IP Address", pCfg->xClient.xServer.pIP);
-	printf("%12s : %d\n", "Port", pCfg->xClient.xServer.usPort);
+	TRACE("\n<Server Configuratoin>\n");
+	TRACE("%12s : %s\n", "IP Address", pCfg->xClient.xServer.pIP);
+	TRACE("%12s : %d\n", "Port", pCfg->xClient.xServer.usPort);
 
-	printf("\n<MQTT Configuratoin>\n");
-	printf("%12s : %s\n", "Client ID", pCfg->xMQTT.pClientID);
-	printf("%12s : %s\n", "IP Address", pCfg->xMQTT.pBrokerIP);
-	printf("%12s : %d\n", "Port", pCfg->xMQTT.usPort);
-	printf("%12s : %d\n", "Keep Alive", pCfg->xMQTT.usPort);
+	TRACE("\n<MQTT Configuratoin>\n");
+	TRACE("%12s : %s\n", "Client ID", pCfg->xMQTT.pClientID);
+	TRACE("%12s : %s\n", "IP Address", pCfg->xMQTT.pBrokerIP);
+	TRACE("%12s : %d\n", "Port", pCfg->xMQTT.usPort);
+	TRACE("%12s : %d\n", "Keep Alive", pCfg->xMQTT.usPort);
 
-	printf("\n<Light Configuration>\n");
+	TRACE("\n<Light Configuration>\n");
 	ulCount = FTM_LIST_count(pCfg->pLightList);
-	printf("%12s : %lu\n", "Count", ulCount);
+	TRACE("%12s : %lu\n", "Count", ulCount);
 
-	printf("%12s %12s %12s %12s %16s\n", "ID", "STATUS", "LEVEL", "DULATION", "NAME");
+	TRACE("%12s %12s %12s %12s %16s\n", "ID", "STATUS", "LEVEL", "DULATION", "NAME");
 	FTM_LIST_iteratorStart(pCfg->pLightList);
 	while(FTM_LIST_iteratorNext(pCfg->pLightList, (FTM_VOID_PTR _PTR_)&pLight) == FTM_RET_OK)
 	{
-		printf("    %08x", (unsigned int)pLight->xID);
-		switch(pLight->xStatus)
+		TRACE("    %08x", (unsigned int)pLight->xID);
+		switch(pLight->ulCmd)
 		{
-		case FTLM_LIGHT_STATUS_OFF: 	printf(" %12s",	"off"); 	break;
-		case FTLM_LIGHT_STATUS_ON:		printf(" %12s",	"on"); 		break;
-		default:						printf(" %12s",	"dimming"); break;
+		case 0: 	TRACE(" %12s",	"off"); 	break;
+		case 255:	TRACE(" %12s",	"dimming"); break;
+		default:	TRACE(" %12s",	"on"); 		break;
 		}
-		printf(" %12lu %12lu %16s\n", 	pLight->ulLevel, pLight->ulTime, pLight->pName);
+		TRACE(" %12lu %12lu %16s\n", 	pLight->ulLevel, pLight->ulTime, pLight->pName);
 	}
 
-	printf("\n<Group Configuration>\n");
+	TRACE("\n<Group Configuration>\n");
 	ulCount = FTM_LIST_count(pCfg->pGroupList);
-	printf("%12s : %lu\n", "count", ulCount);
+	TRACE("%12s : %lu\n", "count", ulCount);
 
-	printf("%12s %12s %12s %12s %16s %12s\n", "ID", "STATUS", "LEVEL", "DULATION", "NAME", "LIGHTS");
+	TRACE("%12s %12s %12s %12s %16s %12s\n", "ID", "STATUS", "LEVEL", "DULATION", "NAME", "LIGHTS");
 	FTM_LIST_iteratorStart(pCfg->pGroupList);
 	while(FTM_LIST_iteratorNext(pCfg->pGroupList, (FTM_VOID_PTR _PTR_)&pGroup) == FTM_RET_OK)
 	{
 		FTM_ID			xLightID;
 		FTM_ULONG		ulCount;
 
-		printf("    %08x", (unsigned int)pGroup->xID);
-		switch(pGroup->xStatus)
+		TRACE("    %08x", (unsigned int)pGroup->xID);
+		switch(pGroup->ulCmd)
 		{
-		case FTLM_LIGHT_STATUS_OFF: 	printf(" %12s",	"off"); 	break;
-		case FTLM_LIGHT_STATUS_ON:		printf(" %12s",	"on"); 		break;
-		default:						printf(" %12s",	"dimming"); break;
+		case 0: 	TRACE(" %12s",	"off"); 	break;
+		case 255:	TRACE(" %12s",	"dimming"); break;
+		default:	TRACE(" %12s",	"on"); 		break;
 		}
-		printf(" %12lu %12lu %16s ", 	pGroup->ulLevel, pGroup->ulTime, pGroup->pName);
+		TRACE(" %12lu %12lu %16s ", 	pGroup->ulLevel, pGroup->ulTime, pGroup->pName);
 
 		ulCount = FTM_LIST_count(pGroup->pLightList);
-		printf(" %4lu ", ulCount);
+		TRACE(" %4lu ", ulCount);
 
 		FTM_LIST_iteratorStart(pGroup->pLightList);
 		while(FTM_LIST_iteratorNext(pGroup->pLightList, (FTM_VOID_PTR _PTR_)&xLightID) == FTM_RET_OK)
 		{
-			printf(" %08x", (unsigned int)xLightID);
+			TRACE(" %08x", (unsigned int)xLightID);
 		}
-		printf("\n");
+		TRACE("\n");
 	}
 
-	printf("\n<Switch Configuration>\n");
+	TRACE("\n<Switch Configuration>\n");
 	ulCount = FTM_LIST_count(pCfg->pSwitchList);
-	printf("%12s : %lu\n", "Count", ulCount);
+	TRACE("%12s : %lu\n", "Count", ulCount);
 
-	printf("%12s %16s %12s\n", "ID", "NAME", "GROUPS");
+	TRACE("%12s %16s %12s\n", "ID", "NAME", "GROUPS");
 	FTM_LIST_iteratorStart(pCfg->pSwitchList);
 	while(FTM_LIST_iteratorNext(pCfg->pSwitchList, (FTM_VOID_PTR _PTR_)&pSwitch) == FTM_RET_OK)
 	{
 		FTM_ID			xGroupID;
 		FTM_ULONG		ulCount;
 
-		printf("    %08x %16s", (unsigned int)pSwitch->xID, pSwitch->pName);
+		TRACE("    %08x %16s", (unsigned int)pSwitch->xID, pSwitch->pName);
 		ulCount = FTM_LIST_count(pSwitch->pGroupList);
-		printf(" %4lu", ulCount);
+		TRACE(" %4lu", ulCount);
 		FTM_LIST_iteratorStart(pSwitch->pGroupList);
 		while(FTM_LIST_iteratorNext(pSwitch->pGroupList, (FTM_VOID_PTR _PTR_)&xGroupID) == FTM_RET_OK)
 		{
-			printf(" %08x", (unsigned int)xGroupID);
+			TRACE(" %08x", (unsigned int)xGroupID);
 		}
-		printf("\n");
+		TRACE("\n");
 	}
 
 	return	FTM_RET_OK;
@@ -782,6 +793,33 @@ FTM_ULONG	FTLM_CFG_LIGHT_count(FTLM_CFG_PTR pCfg)
 	ASSERT(pCfg != NULL);
 
 	return	FTM_LIST_count(pCfg->pLightList);
+}
+
+FTLM_LIGHT_CFG_PTR FTLM_CFG_LIGHT_create(FTLM_CFG_PTR pCfg, FTM_ID xLightID)
+{
+	FTLM_LIGHT_CFG_PTR pLight;
+
+	if (pCfg == NULL)
+	{
+		return	NULL;
+	}
+	
+	pLight = FTLM_CFG_LIGHT_get(pCfg, xLightID);
+	if (pLight == NULL)
+	{
+		pLight = (FTLM_LIGHT_CFG_PTR)FTM_MEM_malloc(sizeof(FTLM_LIGHT_CFG));
+		if (pLight != NULL)
+		{
+			pLight->xID = xLightID;
+		}
+	}
+
+	if (pLight != NULL)
+	{
+		FTM_LIST_append(pCfg->pLightList, pLight);
+	}
+
+	return	pLight;
 }
 
 FTLM_LIGHT_CFG_PTR FTLM_CFG_LIGHT_get(FTLM_CFG_PTR pCfg, FTM_ID xLightID)
@@ -836,6 +874,7 @@ FTLM_GROUP_CFG_PTR FTLM_CFG_GROUP_create(FTLM_CFG_PTR pCfg, FTM_ID xGroupID)
 		{
 			pGroup->xID = xGroupID;
 			pGroup->pLightList = FTM_LIST_create();
+			FTM_LIST_setSeeker(pGroup->pLightList, FTLM_CFG_ID_seeker);
 		}
 	}
 
@@ -883,6 +922,35 @@ FTM_ULONG	FTLM_CFG_SWITCH_count(FTLM_CFG_PTR pCfg)
 	ASSERT(pCfg != NULL);
 
 	return	FTM_LIST_count(pCfg->pSwitchList);
+}
+
+FTLM_SWITCH_CFG_PTR FTLM_CFG_SWITCH_create(FTLM_CFG_PTR pCfg, FTM_ID xSwitchID)
+{
+	FTLM_SWITCH_CFG_PTR pSwitch;
+
+	if (pCfg == NULL)
+	{
+		return	NULL;
+	}
+	
+	pSwitch = FTLM_CFG_SWITCH_get(pCfg, xSwitchID);
+	if (pSwitch == NULL)
+	{
+		pSwitch = (FTLM_SWITCH_CFG_PTR)FTM_MEM_malloc(sizeof(FTLM_SWITCH_CFG));
+		if (pSwitch != NULL)
+		{
+			pSwitch->xID = xSwitchID;
+			pSwitch->pGroupList = FTM_LIST_create();
+			FTM_LIST_setSeeker(pSwitch->pGroupList, FTLM_CFG_ID_seeker);
+		}
+	}
+
+	if (pSwitch != NULL)
+	{
+		FTM_LIST_append(pCfg->pSwitchList, pSwitch);
+	}
+
+	return	pSwitch;
 }
 
 FTLM_SWITCH_CFG_PTR FTLM_CFG_SWITCH_get(FTLM_CFG_PTR pCfg, FTM_ID xSwitchID)
