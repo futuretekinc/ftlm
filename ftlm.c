@@ -11,14 +11,16 @@
 #include "ftlm_server.h"
 #include "ftlm_object.h"
 #include "ftlm_client_msg.h"
+#include "ftlm.h"
 #include "nxjson.h"
 
 static FTM_VOID_PTR	FTLM_process(FTM_VOID_PTR pData);
 static void 	FTLM_MQTT_messageCB(void *pObj, const struct mosquitto_message *pMessage);
+static void		FTLM_MQTT_connectCB(void *pMQTT, int nRet);
+static void		FTLM_MQTT_disconnectCB(void *pMQTT, int nRet);
 static FTM_RET	FTLM_CLIENT_messageCB(void *pObj, void *pParam);
 static FTM_VOID	FTLM_usage(FTM_CHAR_PTR pAppName);
-static FTM_RET 	FTLM_CLIENT_CMD_groupCtrl(FTLM_GROUP_PTR pGroup, FTM_ULONG ulCmd, FTM_ULONG ulLevel, FTM_ULONG ulTime);
-static FTM_RET	FTLM_CLIENT_CMD_lightCtrl(FTLM_LIGHT_PTR pLight, FTM_ULONG ulCmd, FTM_ULONG ulLevel, FTM_ULONG ulTime);
+
 
 FTM_DEBUG_CFG	_debugCfg = 
 {
@@ -125,6 +127,8 @@ FTM_VOID_PTR	FTLM_process(FTM_VOID_PTR pData)
 		return	0;
 	}
 	FTM_MQTT_setMessageCB(pMQTT, FTLM_MQTT_messageCB);
+	FTM_MQTT_setConnectCB(pMQTT, FTLM_MQTT_connectCB);
+	FTM_MQTT_setDisconnectCB(pMQTT, FTLM_MQTT_disconnectCB);
 
 	if (pConfig->xClient.bEnable)
 	{
@@ -202,6 +206,30 @@ finish:
 	nx_json_free(pRoot);
 }
 
+void FTLM_MQTT_connectCB(void *pMQTT, int nRet)
+{
+	FTM_INT	i;
+	TRACE("FTLM MQTT connected\n");
+	
+	for(i = 0 ; i < FTLM_OBJ_getLightCount() ; i++)
+	{
+		FTLM_LIGHT_PTR	pLight = FTLM_OBJ_getLightAt(i);	
+		if (pLight != NULL)
+		{
+			char pSub[1024];
+
+			sprintf(pSub, "/v/a/g/%s/#", pLight->pGatewayID);
+			FTM_MQTT_subscribe(pMQTT, pSub, 1);
+		}
+	}
+
+}
+
+void FTLM_MQTT_disconnectCB(void *pMQTT, int nRet)
+{
+	TRACE("FTLM MQTT disconnected\n");
+}
+
 FTM_RET	FTLM_CLIENT_messageCB(void *pObj, void *pParam)
 {
 	FTLM_CLIENT_PTR 		pClient = (FTLM_CLIENT_PTR)pObj;
@@ -233,7 +261,7 @@ FTM_RET	FTLM_CLIENT_messageCB(void *pObj, void *pParam)
 						return	FTM_RET_ERROR;	
 				}
 
-				FTLM_CLIENT_CMD_groupCtrl(pGroup, pGroups[i].nCmd, pGroups[i].nLevel, pGroups[i].nDimmingTime);
+				FTLM_groupCtrl(pGroup, pGroups[i].nCmd, pGroups[i].nLevel, pGroups[i].nDimmingTime);
 			}
 		}
 		break;
@@ -256,7 +284,7 @@ FTM_RET	FTLM_CLIENT_messageCB(void *pObj, void *pParam)
 					return	FTM_RET_ERROR;	
 				}
 
-				FTLM_CLIENT_CMD_lightCtrl(pLight, pLights[i].nCmd, pLights[i].nLevel, pLights[i].nDulationTime);	
+				FTLM_lightCtrl(pLight, pLights[i].nCmd, pLights[i].nLevel, pLights[i].nDulationTime);	
 			}
 		}
 		break;
@@ -444,7 +472,7 @@ FTM_RET	FTLM_CLIENT_messageCB(void *pObj, void *pParam)
 	return	FTM_RET_OK;
 }
 
-FTM_RET FTLM_CLIENT_CMD_groupCtrl(FTLM_GROUP_PTR pGroup, FTM_ULONG ulCmd, FTM_ULONG ulLevel, FTM_ULONG ulTime)
+FTM_RET FTLM_groupCtrl(FTLM_GROUP_PTR pGroup, FTM_ULONG ulCmd, FTM_ULONG ulLevel, FTM_ULONG ulTime)
 {
 	FTM_ULONG		i, ulCount;
 
@@ -458,7 +486,7 @@ FTM_RET FTLM_CLIENT_CMD_groupCtrl(FTLM_GROUP_PTR pGroup, FTM_ULONG ulCmd, FTM_UL
 		pLight = FTLM_GROUP_getLightAt(pGroup, i);
 		if (pLight != NULL)
 		{
-			FTLM_CLIENT_CMD_lightCtrl(pLight, ulCmd, ulLevel, ulTime);	
+			FTLM_lightCtrl(pLight, ulCmd, ulLevel, ulTime);	
 		}
 	}
 
@@ -470,15 +498,17 @@ FTM_RET FTLM_CLIENT_CMD_groupCtrl(FTLM_GROUP_PTR pGroup, FTM_ULONG ulCmd, FTM_UL
 	return	FTM_RET_OK;
 }
 
-FTM_RET	FTLM_CLIENT_CMD_lightCtrl(FTLM_LIGHT_PTR pLight, FTM_ULONG ulCmd, FTM_ULONG ulLevel, FTM_ULONG ulTime)
+FTM_RET	FTLM_lightCtrl(FTLM_LIGHT_PTR pLight, FTM_ULONG ulCmd, FTM_ULONG ulLevel, FTM_ULONG ulTime)
 {
 	char			pTopic[256];
 	char			pMessage[256];
 	int				nMessage;
 
-	sprintf(pTopic, "/v/a/g/%s/s/%08x/req", pMQTT->xConfig.pClientID, (unsigned int)pLight->xCommon.xID);
-	nMessage = sprintf(pMessage, "{\"cmd\":\"%lu\", \"level\":%lu, \"time\":%lu}", ulCmd, ulLevel, ulTime);
+	//sprintf(pTopic, "/v/a/g/%s/s/%08x/req", pLight->pGatewayID, (unsigned int)pLight->xCommon.xID);
+	sprintf(pTopic, "/v/a/g/%s/req", pLight->pGatewayID);
+	nMessage = sprintf(pMessage, "{\"method\":\"setProperty\", \"cmd\":\"%lu\", \"level\":%lu, \"time\":%lu}", ulCmd, ulLevel, ulTime);
 
+	printf("%s : %s\n", pTopic, pMessage);
 	FTM_MQTT_publish(pMQTT, pTopic, pMessage, nMessage, 0);
 
 	pLight->ulCmd	= ulCmd;

@@ -4,6 +4,7 @@
 #include "ftlm_server.h"
 #include "ftlm_object.h"
 #include "ftm_mem.h"
+#include "ftlm.h"
 #include <nxjson.h>
 
 static FTM_VOID_PTR FTLM_SERVER_loop(FTM_VOID_PTR pData);
@@ -245,30 +246,35 @@ FTM_RET FTLM_SERVER_process(FTM_BYTE_PTR pReqBuff, FTM_ULONG ulReqBuffLen, FTM_B
 			pLight = nx_json_item(pLights, i);
 			if (pLight == NULL)
 			{
+				printf("Light[%d] not found\n", i);
 				goto error;	
 			}
 
 			pID = nx_json_get(pLight, "id");
 			if ((pID == NULL) || (pID->type != NX_JSON_INTEGER))
 			{	
+				printf("ID not found!\n");
 				goto error;
 			}
 
 			pCmd = nx_json_get(pLight, "cmd");
 			if ((pCmd == NULL) || (pCmd->type != NX_JSON_INTEGER))
 			{	
+				printf("Cmd  not found!\n");
 				goto error;
 			}
 
 			pLevel = nx_json_get(pLight, "level");
 			if ((pLevel == NULL) || (pLevel->type != NX_JSON_INTEGER))
 			{	
+				printf("Level not found!\n");
 				goto error;
 			}
 
 			pTime = nx_json_get(pLight, "time");
 			if ((pTime == NULL) || (pTime->type != NX_JSON_INTEGER))
 			{	
+				printf("Time not found!\n");
 				goto error;
 			}
 

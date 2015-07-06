@@ -4,6 +4,7 @@
 #include "ftm_mem.h"
 #include "ftm_debug.h"
 #include "ftm_mqtt.h"
+#include "ftlm.h"
 
 static	FTM_LIST_PTR	pLightList;
 static	FTM_LIST_PTR	pGroupList;
@@ -274,6 +275,8 @@ FTM_RET	FTLM_LIGHT_set(FTM_ID xID, unsigned char nCmd, unsigned char nLevel, uns
 	{
 		return	FTM_RET_ERROR;	
 	}
+
+	FTLM_lightCtrl(pLight, (FTM_ULONG)nCmd, (FTM_ULONG)nLevel, (FTM_ULONG) nDulationTime);
 
 	pLight->ulCmd	= nCmd;
 	pLight->ulLevel = nLevel;

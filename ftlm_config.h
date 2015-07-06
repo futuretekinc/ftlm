@@ -1,5 +1,5 @@
-#ifndef	__FTLM_H__
-#define	__FTLM_H__
+#ifndef	__FTLM_CONFIG_H__
+#define	__FTLM_CONFIG_H__
 
 #include "ftm_types.h"
 #include "ftm_list.h"

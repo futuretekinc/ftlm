@@ -299,7 +299,7 @@ int	FTLM_API_LIGHT_setCtrls(FTLM_LIGHT_CTRL_PTR pLights, int nLights)
 
 	ASSERT(pLights != NULL);
 
-	nBuffLen = sprintf(pBuff, "{\"cmd\":\"setLlightCtrls\", \"lights\":[");
+	nBuffLen = sprintf(pBuff, "{\"cmd\":\"setLightCtrls\", \"lights\":[");
 	for(i = 0 ; i < nLights ; i++)
 	{
 		if (i != 0)
@@ -698,7 +698,7 @@ int	FTLM_API_GROUP_setCtrls(FTLM_GROUP_CTRL_PTR pGroups, int nGroups)
 
 	ASSERT(pGroups != NULL);
 
-	nBuffLen = sprintf(pBuff, "{\"cmd\":\"setGroupCtrl\", \"groups\":[");
+	nBuffLen = sprintf(pBuff, "{\"cmd\":\"setGroupCtrls\", \"groups\":[");
 	for(i = 0 ; i < nGroups ; i++)
 	{
 		if (i != 0)
