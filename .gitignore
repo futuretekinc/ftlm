@@ -27,7 +27,12 @@
 *.i*86
 *.x86_64
 *.hex
+ftlm
 
 # Debug files
 *.dSYM/
 *.old
+tags
+ftlm_console
+ftlm
+log/

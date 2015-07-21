@@ -1,26 +1,76 @@
-#ifndef	__FTLM_H__
-#define	__FTLM_H__
+#ifndef	__FTLM_CONFIG_H__
+#define	__FTLM_CONFIG_H__
 
 #include "ftm_types.h"
 #include "ftm_list.h"
-#include "ftlm_device.h"
+#include "ftm_mqtt.h"
 #include <time.h>
 
 #define	FTLM_SERVER_IP_LEN	32
+#define	FTLM_GROUP_MAX		8
+#define	FTLM_LIGHT_MAX		255
+#define	FTLM_NAME_MAX		255
+
+typedef struct
+{
+	FTM_BOOL	bEnable;
+	struct
+	{
+		FTM_CHAR	pIP[FTLM_SERVER_IP_LEN];	
+		FTM_USHORT	usPort;
+	} xServer;
+}	FTLM_CLIENT_CFG, _PTR_ FTLM_CLIENT_CFG_PTR;
+
+typedef	enum FTLM_LIGHT_STATUS_ENUM
+{
+	FTLM_LIGHT_STATUS_OFF 	= 0,
+	FTLM_LIGHT_STATUS_BLINK = 1,
+	FTLM_LIGHT_STATUS_ON 	= 255
+} FTLM_LIGHT_STATUS, _PTR_ FTLM_LIGHT_STATUS_PTR;
 
 typedef	struct
 {
-	struct
-	{
-		FTM_CHAR	pServerIP[FTLM_SERVER_IP_LEN];	
-		FTM_USHORT	usPort;
-	}	xNetwork;
+	FTM_ID				xID;
+	FTM_CHAR			pName[FTLM_NAME_MAX+1];
 
-	char			pGatewayID[11];
+	FTM_CHAR			pGatewayID[FTM_GATEWAY_ID_LEN + 1];
 
-	FTM_LIST_PTR	pLightList;
-	FTM_LIST_PTR	pGroupList;
-	FTM_LIST_PTR	pSwitchList;
+	FTM_ULONG			ulCmd;
+	FTM_ULONG			ulLevel;
+	FTM_ULONG			ulTime;
+}	FTLM_LIGHT_CFG, _PTR_ FTLM_LIGHT_CFG_PTR;
+
+typedef	struct
+{
+	FTM_ID				xID;
+	FTM_CHAR			pName[FTLM_NAME_MAX+1];
+
+	FTM_LIST_PTR		pLightList;
+
+	FTM_ULONG			ulCmd;
+	FTM_ULONG			ulLevel;
+	FTM_ULONG			ulTime;
+}	FTLM_GROUP_CFG, _PTR_ FTLM_GROUP_CFG_PTR;
+
+typedef	struct
+{
+	FTM_ID				xID;
+	FTM_CHAR			pName[FTLM_NAME_MAX+1];
+
+	FTM_LIST_PTR		pGroupList;
+}	FTLM_SWITCH_CFG, _PTR_ FTLM_SWITCH_CFG_PTR;
+
+typedef	struct
+{
+	FTM_ULONG			ulRefCount;
+	FTM_CHAR			pGatewayID[11];
+	FTM_CHAR			pFileName[1024];
+
+	FTM_MQTT_CONFIG		xMQTT;
+	FTLM_CLIENT_CFG		xClient;
+	FTM_LIST_PTR		pLightList;
+	FTM_LIST_PTR		pGroupList;
+	FTM_LIST_PTR		pSwitchList;
 }	FTLM_CFG, _PTR_ FTLM_CFG_PTR;
 
 FTM_RET	FTLM_CFG_init(FTLM_CFG_PTR pCfg);
@@ -28,11 +78,22 @@ FTM_RET	FTLM_CFG_final(FTLM_CFG_PTR pCfg);
 FTM_RET	FTLM_CFG_load(FTLM_CFG_PTR pCfg, FTM_CHAR_PTR pFileName);
 FTM_RET FTLM_CFG_save(FTLM_CFG_PTR pCfg, FTM_CHAR_PTR pFileName);
 FTM_RET	FTLM_CFG_print(FTLM_CFG_PTR pCfg);
+FTM_RET	FTLM_CFG_reference(FTLM_CFG_PTR pCfg);
+FTM_RET	FTLM_CFG_unreference(FTLM_CFG_PTR pCfg);
 
-FTLM_LIGHT_PTR 	FTLM_CFG_LIGHT_create(FTLM_CFG_PTR pCfg, FTLM_ID nID);
-FTLM_LIGHT_PTR 	FTLM_CFG_LIGHT_get(FTLM_CFG_PTR pCfg, FTLM_ID nID);
-FTLM_GROUP_PTR 	FTLM_CFG_GROUP_create(FTLM_CFG_PTR pCfg, FTLM_ID nID);
-FTLM_GROUP_PTR 	FTLM_CFG_GROUP_get(FTLM_CFG_PTR pCfg, FTLM_ID nID);
-FTLM_SWITCH_PTR FTLM_CFG_SWITCH_create(FTLM_CFG_PTR pCfg, FTLM_ID nID);
-FTLM_SWITCH_PTR FTLM_CFG_SWITCH_get(FTLM_CFG_PTR pCfg, FTLM_ID nID);
+FTM_ULONG			FTLM_CFG_LIGHT_count(FTLM_CFG_PTR pCfg);
+FTLM_LIGHT_CFG_PTR 	FTLM_CFG_LIGHT_create(FTLM_CFG_PTR pCfg, 	FTM_ID xID);
+FTLM_LIGHT_CFG_PTR 	FTLM_CFG_LIGHT_get(FTLM_CFG_PTR pCfg, 		FTM_ID xID);
+FTLM_LIGHT_CFG_PTR  FTLM_CFG_LIGHT_getAt(FTLM_CFG_PTR pCfg, 	FTM_ULONG ulIndex);
+
+FTM_ULONG			FTLM_CFG_GROUP_count(FTLM_CFG_PTR pCfg);
+FTLM_GROUP_CFG_PTR 	FTLM_CFG_GROUP_create(FTLM_CFG_PTR pCfg, 	FTM_ID xID);
+FTLM_GROUP_CFG_PTR 	FTLM_CFG_GROUP_get(FTLM_CFG_PTR pCfg, 		FTM_ID xID);
+FTLM_GROUP_CFG_PTR  FTLM_CFG_GROUP_getAt(FTLM_CFG_PTR pCfg, 	FTM_ULONG ulIndex);
+
+FTM_ULONG			FTLM_CFG_SWITCH_count(FTLM_CFG_PTR pCfg);
+FTLM_SWITCH_CFG_PTR FTLM_CFG_SWITCH_create(FTLM_CFG_PTR pCfg, 	FTM_ID xID);
+FTLM_SWITCH_CFG_PTR FTLM_CFG_SWITCH_get(FTLM_CFG_PTR pCfg, 		FTM_ID xID);
+FTLM_SWITCH_CFG_PTR FTLM_CFG_SWITCH_getAt(FTLM_CFG_PTR pCfg, 	FTM_ULONG ulIndex);
+
 #endif

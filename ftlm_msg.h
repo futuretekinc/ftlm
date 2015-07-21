@@ -112,19 +112,19 @@ typedef	struct
 	unsigned char			nGroups;
 	FTLM_GROUP_STATUS	pGroups[];
 } FTLM_GROUP_STATUS_PARAM, _PTR_ FTLM_GROUP_STATUS_PARAM_PTR;
-	
+
 typedef struct
 {
 	unsigned char	nID;
 	unsigned char	nStatus;
 	unsigned char	nLevel;
 	unsigned char	nDulationTime; 
-}	FTLM_LIGHT_STATUS, _PTR_ FTLM_LIGHT_STATUS_PTR;	
+}	_FTLM_LIGHT_STATUS, _PTR_ _FTLM_LIGHT_STATUS_PTR;	
 
 typedef	struct
 {
 	unsigned char			nLights;
-	FTLM_LIGHT_STATUS	pLights[];
+	_FTLM_LIGHT_STATUS	pLights[];
 }	FTLM_LIGHT_STATUS_PARAM, _PTR_ FTLM_LIGHT_STATUS_PARAM_PTR;
 
 typedef union

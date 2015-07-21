@@ -4,15 +4,28 @@ include ./config.mk
 
 LIB_OBJS=ftlm_config.o\
 		ftlm_client.o\
-		ftlm_mqtt.o\
-		ftlm_msg.o
+		ftlm_object.o\
+		ftlm_client_msg.o\
+		ftlm_server.o
 
-all : libftlm.a ftlm
+all : libftlm.a libftlmapi.a ftlm ftlm_console
 
 ftlm : ftlm.o 
 	${CROSS_COMPILE}${CC} $^ -o $@ ${FTLM_LDFLAGS}
 
 ftlm.o : ftlm.c libftlm.a
+	${CROSS_COMPILE}${CC} -c $< -o $@ ${FTLM_CFLAGS}
+
+ftlm_console : ftlm_console.o  
+	${CROSS_COMPILE}${CC} $^ -o $@ ${FTLM_CONSOLE_LDFLAGS}
+
+ftlm_console.o : ftlm_console.c libftlmapi.a
+	${CROSS_COMPILE}${CC} -c $< -o $@ ${FTLM_CFLAGS}
+
+libftlmapi.a : ftlm_server_api.o
+	${CROSS_COMPILE}$(AR) cr $@ $^
+
+ftlm_server_api.o : ftlm_server_api.c ftlm_server_api.h
 	${CROSS_COMPILE}${CC} -c $< -o $@ ${FTLM_CFLAGS}
 
 libftlm.a : ${LIB_OBJS}
@@ -24,10 +37,13 @@ ftlm_config.o : ftlm_config.c ftlm_config.h
 ftlm_client.o : ftlm_client.c ftlm_client.h
 	${CROSS_COMPILE}$(CC) $(LIB_CFLAGS) -c $< -o $@
 
-ftlm_mqtt.o : ftlm_mqtt.c ftlm_mqtt.h
+ftlm_object.o : ftlm_object.c ftlm_object.h
 	${CROSS_COMPILE}$(CC) $(LIB_CFLAGS) -c $< -o $@
 
-ftlm_msg.o : ftlm_msg.c ftlm_msg.h
+ftlm_client_msg.o : ftlm_client_msg.c ftlm_client_msg.h
+	${CROSS_COMPILE}$(CC) $(LIB_CFLAGS) -c $< -o $@
+
+ftlm_server.o : ftlm_server.c ftlm_server.h
 	${CROSS_COMPILE}$(CC) $(LIB_CFLAGS) -c $< -o $@
 
 install : all
@@ -40,5 +56,5 @@ uninstall :
 reallyclean : clean
 
 clean : 
-	-rm -f *.o ftlm
+	-rm -f *.o ftlm lib*.a
 
