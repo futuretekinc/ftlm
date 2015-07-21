@@ -17,8 +17,8 @@ LIB_CXXFLAGS:=$(LIB_CFLAGS) ${CPPFLAGS}
 LIB_LDFLAGS:=${LDFLAGS}
 
 
-FTLM_LIBS:= -lftlm -lftm -lftlmapi -lconfig -lnxjson -lmosquitto -ldl 
-FTLM_CONSOLE_LIBS:= -lftlm -lftm -lftlmapi -lconfig -lnxjson -lmosquitto -ldl 
+FTLM_LIBS:= -lftlm -lftm -lftlmapi -lconfig -lnxjson -lmosquitto -lssl -lcrypto -ldl 
+FTLM_CONSOLE_LIBS:= -lftlm -lftm -lftlmapi -lconfig -lnxjson -lmosquitto -lssl -lcrypto -ldl 
 
 FTLM_CFLAGS:=${CFLAGS} ${CPPFLAGS} \
 		-I../lib \
@@ -29,6 +29,7 @@ FTLM_LDFLAGS:=$(LDFLAGS) ${FTLM_LIBS} \
 		-L../build_package/libftm/lib \
 		-L../build_package/libconfig-1.4.9/lib \
 		-L../build_package/libnxjson/lib \
+		-L../build_package/openssl/usr/openssl/lib \
 		-L../build_package/mosquitto/usr/local/lib
 
 FTLM_CONSOLE_LDFLAGS:=$(LDFLAGS) ${FTLM_CONSOLE_LIBS} \
@@ -36,6 +37,7 @@ FTLM_CONSOLE_LDFLAGS:=$(LDFLAGS) ${FTLM_CONSOLE_LIBS} \
 		-L../build_package/libftm/lib \
 		-L../build_package/libconfig-1.4.9/lib \
 		-L../build_package/libnxjson/lib \
+		-L../build_package/openssl/usr/openssl/lib \
 		-L../build_package/mosquitto/usr/local/lib
 
 LIB_CFLAGS:=$(LIB_CFLAGS) -fPIC
@@ -46,7 +48,7 @@ ifeq ($(WITH_DOCS),yes)
 	MAKE_ALL:=$(MAKE_ALL) docs
 endif
 
-#CROSS_COMPILE=arm-openwrt-linux-uclibcgnueabi-
+CROSS_COMPILE=arm-openwrt-linux-uclibcgnueabi-
 CC=gcc
 INSTALL?=install
 prefix=/home/xtra/work/cortina/build_package/ftlm
