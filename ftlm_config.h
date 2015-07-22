@@ -65,6 +65,7 @@ typedef	struct
 	FTM_ULONG			ulRefCount;
 	FTM_CHAR			pGatewayID[11];
 	FTM_CHAR			pFileName[1024];
+	FTM_BOOL			bInit;
 
 	FTM_MQTT_CONFIG		xMQTT;
 	FTLM_CLIENT_CFG		xClient;

@@ -25,6 +25,14 @@ typedef	struct
 
 typedef	struct
 {
+	FTM_ID				xID;
+	FTM_ULONG			ulCmd;
+	FTM_ULONG			ulLevel;
+	FTM_ULONG			ulTime;
+}	FTLM_LIGHT_CTRL, _PTR_ FTLM_LIGHT_CTRL_PTR;
+
+typedef	struct
+{
 	FTLM_OBJECT			xCommon;
 
 	FTM_ULONG			ulCmd;
@@ -55,14 +63,17 @@ FTLM_SWITCH_PTR	FTLM_OBJ_getSwitch(FTM_ID xID);
 FTLM_SWITCH_PTR	FTLM_OBJ_getSwitchAt(FTM_ULONG ulIndex);
 
 FTLM_LIGHT_PTR	FTLM_LIGHT_create(FTLM_LIGHT_CFG_PTR pConfig);
-FTM_RET			FTLM_LIGHT_set(FTM_ID xID, unsigned char nCmd, unsigned char nLevel, unsigned char nDulationTime);
+FTM_RET			FTLM_LIGHT_set(FTLM_LIGHT_PTR pLight, unsigned char nLevel);
+FTM_RET			FTLM_LIGHT_dim(FTLM_LIGHT_PTR pLight, unsigned char nLevel, unsigned char nTime);
+FTM_RET			FTLM_LIGHT_ctrl(FTLM_LIGHT_CTRL_PTR pLightCtrls, FTM_ULONG ulCount);
 
 FTLM_GROUP_PTR	FTLM_GROUP_create(FTLM_GROUP_CFG_PTR pConfig);
 FTM_ULONG		FTLM_GROUP_getLightCount(FTLM_GROUP_PTR pGroup);
 FTLM_LIGHT_PTR 	FTLM_GROUP_getLight(FTLM_GROUP_PTR pGroup, FTM_ID xID);
 FTLM_LIGHT_PTR 	FTLM_GROUP_getLightAt(FTLM_GROUP_PTR pGroup, FTM_ULONG ulIndex);
 FTM_RET			FTLM_GROUP_addLight(FTLM_GROUP_PTR pGroup, FTM_ID xID);
-FTM_RET 		FTLM_GROUP_set(FTM_ID xID, unsigned char nCmd, unsigned char nLevel, unsigned char nDimmingTime);
+FTM_RET 		FTLM_GROUP_set(FTLM_GROUP_PTR pGroup, unsigned char nLevel);
+FTM_RET 		FTLM_GROUP_dim(FTLM_GROUP_PTR pGroup, unsigned char nLevel, unsigned char nDimmingTime);
 
 FTLM_SWITCH_PTR	FTLM_SWITCH_create(FTLM_SWITCH_CFG_PTR pConfig);
 FTM_ULONG		FTLM_SWITCH_getGroupCount(FTLM_SWITCH_PTR pSwitch);

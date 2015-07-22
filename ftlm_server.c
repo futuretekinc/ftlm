@@ -278,7 +278,19 @@ FTM_RET FTLM_SERVER_process(FTM_BYTE_PTR pReqBuff, FTM_ULONG ulReqBuffLen, FTM_B
 				goto error;
 			}
 
-			FTLM_LIGHT_set((FTM_ID)pID->int_value, (unsigned char)pCmd->int_value, (unsigned char)pLevel->int_value, (unsigned char)pTime->int_value);
+			FTLM_LIGHT_PTR	pObj = FTLM_OBJ_getLight((FTM_ID)pID->int_value);
+			if (pLight != NULL)
+			{
+
+				if (pCmd->int_value != 255)
+				{
+					FTLM_LIGHT_set(pObj , (unsigned char)pCmd->int_value);
+				}
+				else
+				{
+					FTLM_LIGHT_dim(pObj, (unsigned char)pLevel->int_value, (unsigned char)pTime->int_value);
+				}
+			}
 		}
 	}
 	else if (strcmp(pItem->text_value, "getLightGroups") == 0)
@@ -355,9 +367,28 @@ FTM_RET FTLM_SERVER_process(FTM_BYTE_PTR pReqBuff, FTM_ULONG ulReqBuffLen, FTM_B
 			FTLM_GROUP_PTR	pGroup = FTLM_OBJ_getGroup((FTM_ID)pItem->int_value);
 			if (pGroup != NULL)
 			{
+				FTLM_LIGHT_PTR	pLight;
+
 				nRespLen += sprintf((char *)&pRespBuff[nRespLen], "\"id\":%d,\"name\":\"%s\",\"cmd\":%lu,\"level\":%lu,\"time\":%lu",
 					(int)pGroup->xCommon.xID, pGroup->xCommon.pName, pGroup->ulCmd, pGroup->ulLevel, pGroup->ulTime);
-			
+
+
+				if (FTM_LIST_count(pGroup->pLightList) != 0)
+				{
+					int	i;
+					nRespLen += sprintf((char *)&pRespBuff[nRespLen], ",\"lights\":[");
+					for(i = 0 ; i < FTM_LIST_count(pGroup->pLightList) ; i++)
+					{
+						pLight = FTLM_GROUP_getLightAt(pGroup, i);
+						if (i != 0)
+						{
+							nRespLen += sprintf((char *)&pRespBuff[nRespLen], ",");
+						
+						}
+						nRespLen += sprintf((char *)&pRespBuff[nRespLen], "%lu", pLight->xCommon.xID);
+					}
+					nRespLen += sprintf((char *)&pRespBuff[nRespLen], "]");
+				}	
 			}
 			else
 			{
@@ -405,43 +436,55 @@ FTM_RET FTLM_SERVER_process(FTM_BYTE_PTR pReqBuff, FTM_ULONG ulReqBuffLen, FTM_B
 
 		for(i = 0 ; i < pGroups->length ; i++)
 		{
-			const nx_json *pGroup;
-			const nx_json *pID;
-			const nx_json *pStatus;
-			const nx_json *pLevel;
-			const nx_json *pTime;
+			FTLM_GROUP_PTR	pGroup;
+			const nx_json *pJSONGroup;
+			const nx_json *pJSONID;
+			const nx_json *pJSONStatus;
+			const nx_json *pJSONLevel;
+			const nx_json *pJSONTime;
 
-			pGroup = nx_json_item(pGroups, i);
-			if (pGroup == NULL)
+			pJSONGroup = nx_json_item(pGroups, i);
+			if (pJSONGroup == NULL)
 			{
 				goto error;	
 			}
 
-			pID = nx_json_get(pGroup, "id");
-			if ((pID == NULL) || (pID->type != NX_JSON_INTEGER))
+			pJSONID = nx_json_get(pJSONGroup, "id");
+			if ((pJSONID == NULL) || (pJSONID->type != NX_JSON_INTEGER))
 			{	
 				goto error;
 			}
 
-			pStatus = nx_json_get(pGroup, "cmd");
-			if ((pStatus == NULL) || (pStatus->type != NX_JSON_INTEGER))
+			pJSONStatus = nx_json_get(pJSONGroup, "cmd");
+			if ((pJSONStatus == NULL) || (pJSONStatus->type != NX_JSON_INTEGER))
 			{	
 				goto error;
 			}
 
-			pLevel = nx_json_get(pGroup, "level");
-			if ((pLevel == NULL) || (pLevel->type != NX_JSON_INTEGER))
+			pJSONLevel = nx_json_get(pJSONGroup, "level");
+			if ((pJSONLevel == NULL) || (pJSONLevel->type != NX_JSON_INTEGER))
 			{	
 				goto error;
 			}
 
-			pTime = nx_json_get(pGroup, "time");
-			if ((pTime == NULL) || (pTime->type != NX_JSON_INTEGER))
+			pJSONTime = nx_json_get(pJSONGroup, "time");
+			if ((pJSONTime == NULL) || (pJSONTime->type != NX_JSON_INTEGER))
 			{	
 				goto error;
 			}
 
-			FTLM_GROUP_set((FTM_ID)pID->int_value, (unsigned char)pStatus->int_value, (unsigned char)pLevel->int_value, (unsigned char)pTime->int_value);
+			pGroup = FTLM_OBJ_getGroup((FTM_ID)pJSONID->int_value);
+			if (pGroup != NULL)
+			{
+				if (pJSONStatus->int_value != 0xFF)
+				{
+					FTLM_GROUP_set(pGroup, (unsigned char)pJSONStatus->int_value);
+				}
+				else
+				{
+					FTLM_GROUP_dim(pGroup, (unsigned char)pJSONLevel->int_value, (unsigned char)pJSONTime->int_value);
+				}
+			}
 		}
 	}
 	else if (strcmp(pItem->text_value, "getSwitchList") == 0)

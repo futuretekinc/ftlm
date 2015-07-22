@@ -266,25 +266,37 @@ FTLM_LIGHT_PTR	FTLM_LIGHT_create(FTLM_LIGHT_CFG_PTR pConfig)
 	return	pLight;
 }
 
-FTM_RET	FTLM_LIGHT_set(FTM_ID xID, unsigned char nCmd, unsigned char nLevel, unsigned char nDulationTime)
+FTM_RET	FTLM_LIGHT_set(FTLM_LIGHT_PTR pLight, unsigned char nLevel)
 {
-	FTLM_LIGHT_PTR	pLight;
 
-	pLight = FTLM_OBJ_getLight(xID);
-	if (pLight == NULL)
-	{
-		return	FTM_RET_ERROR;	
-	}
+	ASSERT(pLight != NULL);
+	FTLM_lightCtrl(pLight, (FTM_ULONG)nLevel, 0, 0);
 
-	FTLM_lightCtrl(pLight, (FTM_ULONG)nCmd, (FTM_ULONG)nLevel, (FTM_ULONG) nDulationTime);
-
-	pLight->ulCmd	= nCmd;
-	pLight->ulLevel = nLevel;
-	pLight->ulTime  = nDulationTime;
+	pLight->ulCmd	= nLevel;
+	pLight->ulLevel = 0;
+	pLight->ulTime  = 0;
 
 	return	FTM_RET_OK;
 }
 
+FTM_RET	FTLM_LIGHT_dim(FTLM_LIGHT_PTR pLight, unsigned char nLevel, unsigned char nTime)
+{
+
+	ASSERT(pLight != NULL);
+	FTLM_lightCtrl(pLight, 0, (FTM_ULONG)nLevel, (FTM_ULONG)nTime);
+
+	pLight->ulCmd	= 255;
+	pLight->ulLevel = nLevel;
+	pLight->ulTime  = nTime;
+
+	return	FTM_RET_OK;
+}
+
+
+FTM_RET	FTLM_LIGHT_ctrl(FTLM_LIGHT_CTRL_PTR pLightCtrls, FTM_ULONG ulCount)
+{
+	return	FTM_RET_OK;
+}
 
 FTLM_GROUP_PTR	FTLM_GROUP_create(FTLM_GROUP_CFG_PTR pConfig)
 {
@@ -324,19 +336,30 @@ FTLM_GROUP_PTR	FTLM_GROUP_create(FTLM_GROUP_CFG_PTR pConfig)
 	return	pGroup;
 }
 
-FTM_RET	FTLM_GROUP_set(FTM_ID xID, unsigned char nCmd, unsigned char nLevel, unsigned char nDulationTime)
+FTM_RET	FTLM_GROUP_set(FTLM_GROUP_PTR pGroup, unsigned char nLevel)
 {
-	FTLM_GROUP_PTR	pGroup;
 
-	pGroup = FTLM_OBJ_getGroup(xID);
-	if (pGroup == NULL)
-	{
-		return	FTM_RET_ERROR;	
-	}
+	ASSERT(pGroup != NULL);
 
-	pGroup->ulCmd	= nCmd;
+	FTLM_groupCtrl(pGroup, nLevel, 0, 0);
+
+	pGroup->ulCmd	= nLevel;
+	pGroup->ulLevel = 0;
+	pGroup->ulTime  = 0;
+
+	return	FTM_RET_OK;
+}
+
+FTM_RET	FTLM_GROUP_dim(FTLM_GROUP_PTR pGroup, unsigned char nLevel, unsigned char nTime)
+{
+
+	ASSERT(pGroup != NULL);
+
+	FTLM_groupCtrl(pGroup, 0, nLevel, nTime);
+
+	pGroup->ulCmd	= 255;
 	pGroup->ulLevel = nLevel;
-	pGroup->ulTime  = nDulationTime;
+	pGroup->ulTime  = nTime;
 
 	return	FTM_RET_OK;
 }

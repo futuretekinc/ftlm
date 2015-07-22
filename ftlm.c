@@ -1,4 +1,5 @@
 #include <string.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
@@ -15,9 +16,9 @@
 #include "nxjson.h"
 
 static FTM_VOID_PTR	FTLM_process(FTM_VOID_PTR pData);
-static void 	FTLM_MQTT_messageCB(void *pObj, const struct mosquitto_message *pMessage);
-static void		FTLM_MQTT_connectCB(void *pMQTT, int nRet);
-static void		FTLM_MQTT_disconnectCB(void *pMQTT, int nRet);
+static void 	FTLM_MQTT_messageCB(void *pObj, const struct mosquitto_message *pMessage, void *pParams);
+static void		FTLM_MQTT_connectCB(void *pMQTT, int nRet, void *pParams);
+static void		FTLM_MQTT_disconnectCB(void *pMQTT, int nRet, void *pParams);
 static FTM_RET	FTLM_CLIENT_messageCB(void *pObj, void *pParam);
 static FTM_VOID	FTLM_usage(FTM_CHAR_PTR pAppName);
 
@@ -37,7 +38,7 @@ FTM_DEBUG_CFG	_debugCfg =
 		.bToFile= FTM_FALSE,
 		.pPath	= "/var/log/ftlm/",
 		.pPrefix = "error",
-		.bLine	= FTM_FALSE
+		.bLine	= FTM_TRUE
 	},
 };
 
@@ -81,12 +82,14 @@ int main(int nArgc, char *pArgs[])
 		}   
 	}   
 
-	FTM_DEBUG_configSet(&_debugCfg);
-
 	sprintf(pConfigFileName, "%s.conf", program_invocation_short_name);
 
-	FTM_MEM_init();
+	FTM_DEBUG_configSet(&_debugCfg);
+	FTM_DEBUG_configLoad(&_debugCfg, pConfigFileName);
+
 	FTM_DEBUG_printModeSet(MSG_ALL);
+
+	FTM_MEM_init();
 
 	FTLM_CFG_init(&xCfg);
 	FTLM_CFG_load(&xCfg, pConfigFileName);
@@ -126,9 +129,10 @@ FTM_VOID_PTR	FTLM_process(FTM_VOID_PTR pData)
 	{
 		return	0;
 	}
-	FTM_MQTT_setMessageCB(pMQTT, FTLM_MQTT_messageCB);
-	FTM_MQTT_setConnectCB(pMQTT, FTLM_MQTT_connectCB);
-	FTM_MQTT_setDisconnectCB(pMQTT, FTLM_MQTT_disconnectCB);
+
+	FTM_MQTT_setMessageCB(pMQTT, FTLM_MQTT_messageCB, pConfig);
+	FTM_MQTT_setConnectCB(pMQTT, FTLM_MQTT_connectCB, pConfig);
+	FTM_MQTT_setDisconnectCB(pMQTT, FTLM_MQTT_disconnectCB, pConfig);
 
 	if (pConfig->xClient.bEnable)
 	{
@@ -178,37 +182,98 @@ FTM_VOID_PTR	FTLM_process(FTM_VOID_PTR pData)
 	return	0;
 }
 
-static void FTLM_MQTT_messageCB(void *pObj, const struct mosquitto_message *pMessage)
+static void FTLM_MQTT_messageCB(void *pObj, const struct mosquitto_message *pMessage, void *pParams)
 {
 	char	pBuff[2048];
-	const nx_json *pRoot;
-	const nx_json *pItem;
-	unsigned char	nID;
+	const nx_json *pJSONRoot;
+	const nx_json *pJSONMethod;
+	const nx_json *pJSONParams;
+	const nx_json *pJSONParam;
+	const nx_json *pJSONID;
+	const nx_json *pJSONValue;
 
 	memcpy(pBuff, pMessage->payload, pMessage->payloadlen);
 	pBuff[pMessage->payloadlen] = 0;
 
-	pRoot = nx_json_parse_utf8((char *)pMessage->payload);
-	if (pRoot == NULL)
+	pJSONRoot = nx_json_parse_utf8((char *)pMessage->payload);
+	if ((pJSONRoot == NULL) || (pJSONRoot->type == NX_JSON_NULL))
 	{
 		return;
 	}
 
-	pItem = nx_json_get(pRoot, "id");
-	if (pItem == NULL)
+	pJSONMethod = nx_json_get(pJSONRoot, "method");
+	if (pJSONMethod->type == NX_JSON_NULL)
 	{
 		goto finish;	
 	}
-	
-	nID = pItem->int_value;
-	printf("nID = %d\n", nID);
+
+	if ((strcmp(pJSONMethod->text_value, "deviceChanged") == 0) || (strcmp(pJSONMethod->text_value, "deviceGet") == 0))
+	{
+		int	i = 0;
+
+		pJSONParams = nx_json_get(pJSONRoot, "params");
+		if (pJSONParams->type == NX_JSON_NULL)
+		{
+				goto finish;	
+		}
+
+		for(i = 0 ;(pJSONParam = nx_json_item(pJSONParams, i)) != NULL; i++)
+		{
+			unsigned long ulID;
+
+			if (pJSONParam->type == NX_JSON_NULL)
+			{
+				break;	
+			}
+
+			pJSONID = nx_json_get(pJSONParam, "id");
+			if (pJSONID->type == NX_JSON_NULL)
+			{
+				break;
+			}
+
+			pJSONValue = nx_json_get(pJSONParam, "value");
+			if (pJSONValue->type == NX_JSON_NULL)
+			{
+				break;
+			}
+
+			if (pJSONID->type == NX_JSON_STRING)
+			{
+				ulID = strtoul(pJSONID->text_value, NULL, 16);
+			}
+			else
+			{
+				ulID = pJSONID->int_value;
+			}
+			FTLM_LIGHT_PTR	pLight = FTLM_OBJ_getLight(ulID & 0xFF);
+			if (pLight != NULL)
+			{
+				pLight->ulCmd 	= ((unsigned long)pJSONValue->int_value) & 0xFF;
+				pLight->ulLevel = (((unsigned long)pJSONValue->int_value) >> 8) & 0xFF;
+				pLight->ulTime 	= (((unsigned long)pJSONValue->int_value) >> 16) & 0xFF;
+			}
+			else
+			{
+				printf("Error : Object [%lu] not found \n", ulID);
+			}
+		}
+
+	}
+
 finish:
-	nx_json_free(pRoot);
+	nx_json_free(pJSONRoot);
 }
 
-void FTLM_MQTT_connectCB(void *pMQTT, int nRet)
+void FTLM_MQTT_connectCB(void *pMQTT, int nRet, void *pParams)
 {
-	FTM_INT	i;
+	FTLM_CFG_PTR		pConfig = (FTLM_CFG_PTR)pParams;
+	FTM_INT	i, j;
+	char	pTopic[128];
+	char 	pMessage[256];
+	char	*pGatewayID[256];
+	int		nGatewayID = 0;
+
 	TRACE("FTLM MQTT connected\n");
 	
 	for(i = 0 ; i < FTLM_OBJ_getLightCount() ; i++)
@@ -216,16 +281,39 @@ void FTLM_MQTT_connectCB(void *pMQTT, int nRet)
 		FTLM_LIGHT_PTR	pLight = FTLM_OBJ_getLightAt(i);	
 		if (pLight != NULL)
 		{
-			char pSub[1024];
 
-			sprintf(pSub, "/v/a/g/%s/#", pLight->pGatewayID);
-			FTM_MQTT_subscribe(pMQTT, pSub, 1);
+			for(j = 0 ; j < nGatewayID ; j++)
+			{
+				if (strcmp(pLight->pGatewayID, pGatewayID[j]) == 0)
+				{
+					break;	
+				}
+			}
+
+			if (j == nGatewayID)
+			{
+				pGatewayID[nGatewayID++] = pLight->pGatewayID;
+
+				sprintf(pTopic, "/v/a/g/%s/#", pLight->pGatewayID);
+				FTM_MQTT_subscribe(pMQTT, pTopic, 1);
+				printf("subscribe(%s)\n", pTopic);
+			}
+		}
+	}
+
+	if ((pConfig != NULL) && (pConfig->bInit == 0))
+	{
+		sprintf(pMessage, "{\"method\":\"deviceGet\"}");
+		for(j = 0 ; j < nGatewayID ; j++)
+		{
+			sprintf(pTopic, "/v/a/g/%s/req", pGatewayID[j]);
+			FTM_MQTT_publish(pMQTT, pTopic, pMessage, strlen(pMessage), 1);
 		}
 	}
 
 }
 
-void FTLM_MQTT_disconnectCB(void *pMQTT, int nRet)
+void FTLM_MQTT_disconnectCB(void *pMQTT, int nRet, void *pParams)
 {
 	TRACE("FTLM MQTT disconnected\n");
 }
@@ -504,9 +592,8 @@ FTM_RET	FTLM_lightCtrl(FTLM_LIGHT_PTR pLight, FTM_ULONG ulCmd, FTM_ULONG ulLevel
 	char			pMessage[256];
 	int				nMessage;
 
-	//sprintf(pTopic, "/v/a/g/%s/s/%08x/req", pLight->pGatewayID, (unsigned int)pLight->xCommon.xID);
 	sprintf(pTopic, "/v/a/g/%s/req", pLight->pGatewayID);
-	nMessage = sprintf(pMessage, "{\"method\":\"setProperty\", \"cmd\":\"%lu\", \"level\":%lu, \"time\":%lu}", ulCmd, ulLevel, ulTime);
+	nMessage = sprintf(pMessage, "{\"method\":\"deviceSet\", \"params\":[{\"id\":%lu, \"cmd\":%lu, \"level\":%lu, \"time\":%lu}]}", pLight->xCommon.xID, ulCmd, ulLevel, ulTime);
 
 	printf("%s : %s\n", pTopic, pMessage);
 	FTM_MQTT_publish(pMQTT, pTopic, pMessage, nMessage, 0);
@@ -517,6 +604,39 @@ FTM_RET	FTLM_lightCtrl(FTLM_LIGHT_PTR pLight, FTM_ULONG ulCmd, FTM_ULONG ulLevel
 
 	return	FTM_RET_OK;
 }
+
+#if 0
+FTM_RET	FTLM_lightCtrls(FTLM_LIGHT_CTRL_PTR pLights, FTM_ULONG ulCount)
+{
+	char			pTopic[256];
+	char			pMessage[1024];
+	int				nMessage = 0;
+
+	sprintf(pTopic, "/v/a/g/%s/req", pLight->pGatewayID);
+	nMessage = sprintf(pMessage, "{\"method\":\"deviceSet\", \"params\":[");
+
+	for(int i = 0 ; i < ulCount ; i++)
+	{
+		if (i != 0)
+		{
+			nMessage += sprintf(&pMessage[nMessage], ",");
+		
+		}
+
+		nMessage += sprintf(&pMessage[nMessage], "{\"id\":%lu, \"cmd\":%lu, \"level\":%lu, \"time\":%lu}", pLights[i].xID, pLights[i].ulCmd, pLights[i].ulLevel, pLights[i].ulTime);
+	}
+	nMessage += sprintf(&pMessage[nMessage], "]}");
+
+	printf("%s : %s\n", pTopic, pMessage);
+	FTM_MQTT_publish(pMQTT, pTopic, pMessage, nMessage, 0);
+
+	pLight->ulCmd	= ulCmd;
+	pLight->ulLevel	= ulLevel;
+	pLight->ulTime	= ulTime;
+
+	return	FTM_RET_OK;
+}
+#endif
 
 FTM_VOID    FTLM_usage(FTM_CHAR_PTR pAppName)
 {

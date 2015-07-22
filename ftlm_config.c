@@ -25,6 +25,7 @@ FTM_RET FTLM_CFG_init(FTLM_CFG_PTR pCfg)
 	strcpy(pCfg->xClient.xServer.pIP, "127.0.0.1");
 	pCfg->xClient.xServer.usPort = 9877;
 
+	pCfg->bInit = FTM_TRUE;
 	pCfg->pLightList = FTM_LIST_create();
 	FTM_LIST_setSeeker(pCfg->pLightList, FTLM_CFG_LIGHT_seeker);
 	pCfg->pGroupList = FTM_LIST_create();
@@ -199,6 +200,12 @@ FTM_RET FTLM_CFG_load(FTLM_CFG_PTR pCfg, FTM_CHAR_PTR pFileName)
 		if (pConfigs != NULL)
 		{
 			strncpy(pCfg->pGatewayID, config_setting_get_string(pConfigs), 10);
+		}
+
+		pConfigs = config_setting_get_member(pSection, "init");
+		if (pConfigs != NULL)
+		{
+			pCfg->bInit = config_setting_get_int(pConfigs);
 		}
 
 		pLightConfigs = config_setting_get_member(pSection, "lights");

@@ -615,6 +615,7 @@ int	FTLM_API_GROUP_getInfo(FTM_ID	xGroupID, FTLM_GROUP_INFO_PTR pInfo)
 	const nx_json	*pRoot = NULL;
 	const nx_json	*pResult= NULL;
 	const nx_json	*pItem = NULL;
+	const nx_json	*pLights = NULL;
 
 	ASSERT(pInfo != NULL);
 
@@ -641,6 +642,7 @@ int	FTLM_API_GROUP_getInfo(FTM_ID	xGroupID, FTLM_GROUP_INFO_PTR pInfo)
 		{
 			goto error;	
 		}
+		pInfo->nID = pItem->int_value;	
 
 		pItem = nx_json_get(pRoot, "name");
 		if (pItem != NULL)
@@ -668,6 +670,22 @@ int	FTLM_API_GROUP_getInfo(FTM_ID	xGroupID, FTLM_GROUP_INFO_PTR pInfo)
 			goto error; 
 		}
 		pInfo->nTime = pItem->int_value;	
+
+		pInfo->nLight = 0;
+		pLights = nx_json_get(pRoot, "lights");
+		if (pLights->type != NX_JSON_NULL)
+		{
+			while((pItem = nx_json_item(pLights, pInfo->nLight)) != NULL)
+			{
+
+				if (pItem->type == NX_JSON_NULL)
+				{
+					break;	
+				}
+				pInfo->pLightIDs[pInfo->nLight] = pItem->int_value;
+				pInfo->nLight++;
+			}
+		}
 
 	}
 

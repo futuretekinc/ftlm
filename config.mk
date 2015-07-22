@@ -48,8 +48,8 @@ ifeq ($(WITH_DOCS),yes)
 	MAKE_ALL:=$(MAKE_ALL) docs
 endif
 
-CROSS_COMPILE=arm-openwrt-linux-uclibcgnueabi-
+CROSS_COMPILE?=
 CC=gcc
 INSTALL?=install
-prefix=/home/xtra/work/cortina/build_package/ftlm
+prefix=$(CURDIR)/../build_package/ftlm
 STRIP?=strip

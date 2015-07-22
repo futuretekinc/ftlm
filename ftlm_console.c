@@ -235,16 +235,22 @@ FTM_RET	FTLM_CONSOLE_group(FTM_INT nArgc, FTM_CHAR_PTR pArgs[])
 			}
 			else
 			{
-				FTM_INT	i;
+				FTM_INT	i, j;
 
-				printf("%8s %16s %8s %8s %8s\n", "ID", "NAME", "CMD", "LEVEL", "TIME");
+				printf("%8s %16s %8s %8s %8s %s\n", "ID", "NAME", "CMD", "LEVEL", "TIME", "LIGHT");
 				for(i = 0 ; i < ulCount ; i++)
 				{
 					FTLM_GROUP_INFO	xGroupInfo;
 
 					if (FTLM_API_GROUP_getInfo(pGroupIDs[i], &xGroupInfo) == FTM_RET_OK)
 					{
-						printf("%8d %16s %8d %8d %8d\n", xGroupInfo.nID, xGroupInfo.pName, xGroupInfo.nCmd, xGroupInfo.nLevel, xGroupInfo.nTime);
+						printf("%8d %16s %8d %8d %8d %d", xGroupInfo.nID, xGroupInfo.pName, xGroupInfo.nCmd, xGroupInfo.nLevel, xGroupInfo.nTime, xGroupInfo.nLight);
+
+						for(j = 0 ; j < xGroupInfo.nLight ; j++)
+						{
+							printf("%3d ", xGroupInfo.pLightIDs[j]);
+						}
+						printf("\n");
 					}
 				}
 				printf("\n");
