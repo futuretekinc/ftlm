@@ -8,7 +8,7 @@
 #include <nxjson.h>
 
 static FTM_VOID_PTR FTLM_SERVER_loop(FTM_VOID_PTR pData);
-static FTM_RET 		FTLM_SERVER_process(FTM_BYTE_PTR pReqBuff, FTM_ULONG ulReqBuffLen, FTM_BYTE_PTR pRespBuff, FTM_ULONG ulRespBuffLen, FTM_ULONG_PTR ulRespLen);
+static FTM_RET 		FTLM_SERVER_process(FTLM_SERVER_PTR pServer, FTM_BYTE_PTR pReqBuff, FTM_ULONG ulReqBuffLen, FTM_BYTE_PTR pRespBuff, FTM_ULONG ulRespBuffLen, FTM_ULONG_PTR ulRespLen);
 
 FTLM_SERVER_PTR	FTLM_SERVER_create(FTLM_SERVER_CFG_PTR pConfig)
 {
@@ -21,6 +21,7 @@ FTLM_SERVER_PTR	FTLM_SERVER_create(FTLM_SERVER_CFG_PTR pConfig)
 	}
 
 	memset(pServer, 0, sizeof(FTLM_SERVER));
+	pServer->pConfig	= pConfig;
 	pServer->xMemKey 	= pConfig->xMemKey;
 	pServer->ulSlotCount= pConfig->ulSlotCount;
 	pServer->xMemID 	= shmget(pConfig->xMemKey, pConfig->ulSlotCount * sizeof(FTLM_MSG_SLOT), IPC_CREAT|0666);
@@ -108,7 +109,8 @@ FTM_VOID_PTR FTLM_SERVER_loop(FTM_VOID_PTR pData)
 			if ((pServer->pMsgSlot[i].bResp == FTM_FALSE) && (pServer->pMsgSlot[i].bReq == FTM_TRUE))
 			{
 				TRACE("Service called[%s]\n", (FTM_CHAR_PTR)pServer->pMsgSlot[i].pReqBuff);
-				nRet = FTLM_SERVER_process(	pServer->pMsgSlot[i].pReqBuff, 
+				nRet = FTLM_SERVER_process(	pServer,
+											pServer->pMsgSlot[i].pReqBuff, 
 											pServer->pMsgSlot[i].ulReqBuffLen, 
 											pServer->pMsgSlot[i].pRespBuff, 
 											sizeof(pServer->pMsgSlot[i].pRespBuff),
@@ -131,7 +133,7 @@ FTM_VOID_PTR FTLM_SERVER_loop(FTM_VOID_PTR pData)
 }
 
 
-FTM_RET FTLM_SERVER_process(FTM_BYTE_PTR pReqBuff, FTM_ULONG ulReqBuffLen, FTM_BYTE_PTR pRespBuff, FTM_ULONG ulRespBuffLen, FTM_ULONG_PTR pulRespLen)
+FTM_RET FTLM_SERVER_process(FTLM_SERVER_PTR pServer, FTM_BYTE_PTR pReqBuff, FTM_ULONG ulReqBuffLen, FTM_BYTE_PTR pRespBuff, FTM_ULONG ulRespBuffLen, FTM_ULONG_PTR pulRespLen)
 {
 	int	nRespLen = 0;
 	const nx_json *pRoot;
@@ -246,35 +248,35 @@ FTM_RET FTLM_SERVER_process(FTM_BYTE_PTR pReqBuff, FTM_ULONG ulReqBuffLen, FTM_B
 			pLight = nx_json_item(pLights, i);
 			if (pLight == NULL)
 			{
-				printf("Light[%d] not found\n", i);
+				ERROR("Light[%d] not found\n", i);
 				goto error;	
 			}
 
 			pID = nx_json_get(pLight, "id");
 			if ((pID == NULL) || (pID->type != NX_JSON_INTEGER))
 			{	
-				printf("ID not found!\n");
+				ERROR("ID not found!\n");
 				goto error;
 			}
 
 			pCmd = nx_json_get(pLight, "cmd");
 			if ((pCmd == NULL) || (pCmd->type != NX_JSON_INTEGER))
 			{	
-				printf("Cmd  not found!\n");
+				ERROR("Cmd  not found!\n");
 				goto error;
 			}
 
 			pLevel = nx_json_get(pLight, "level");
 			if ((pLevel == NULL) || (pLevel->type != NX_JSON_INTEGER))
 			{	
-				printf("Level not found!\n");
+				ERROR("Level not found!\n");
 				goto error;
 			}
 
 			pTime = nx_json_get(pLight, "time");
 			if ((pTime == NULL) || (pTime->type != NX_JSON_INTEGER))
 			{	
-				printf("Time not found!\n");
+				ERROR("Time not found!\n");
 				goto error;
 			}
 
@@ -549,6 +551,8 @@ FTM_RET FTLM_SERVER_process(FTM_BYTE_PTR pReqBuff, FTM_ULONG ulReqBuffLen, FTM_B
 	}
 	else if (strcmp(pItem->text_value, "saveConfig") == 0)
 	{
+		FTLM_OBJ_save(pServer->pConfig->pConfig);
+		FTLM_CFG_save(pServer->pConfig->pConfig, "test.conf");
 	}
 	else
 	{

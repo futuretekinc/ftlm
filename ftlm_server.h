@@ -24,6 +24,7 @@ typedef struct
 {
 	key_t				xMemKey;
 	FTM_ULONG			ulSlotCount;
+	FTLM_CFG_PTR		pConfig;
 }	FTLM_SERVER_CFG, _PTR_ FTLM_SERVER_CFG_PTR;
 
 typedef	struct
@@ -32,6 +33,7 @@ typedef	struct
 	FTM_INT				hSocket;
 	pthread_t			hThread;
 	FTM_ULONG			ulTimeout;
+	FTLM_SERVER_CFG_PTR	pConfig;
 
 	key_t				xMemKey;
 	FTM_INT				xMemID;

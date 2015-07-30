@@ -10,6 +10,7 @@
 FTM_RET	FTLM_CONSOLE_light(FTM_INT nArgc, FTM_CHAR_PTR pArgs[]);
 FTM_RET	FTLM_CONSOLE_group(FTM_INT nArgc, FTM_CHAR_PTR pArgs[]);
 FTM_RET	FTLM_CONSOLE_switch(FTM_INT nArgc, FTM_CHAR_PTR pArgs[]);
+FTM_RET	FTLM_CONSOLE_save(FTM_INT nArgc, FTM_CHAR_PTR pArgs[]);
 
 static FTM_CONSOLE_CMD	_pCmdList[] =
 {
@@ -30,7 +31,13 @@ static FTM_CONSOLE_CMD	_pCmdList[] =
 		.function	= FTLM_CONSOLE_switch,
 		.pShortHelp	= "switch management",
 		.pHelp		= "switch management"
-	}
+	},
+	{
+		.pString	= "save",
+		.function	= FTLM_CONSOLE_save,
+		.pShortHelp	= "Configure management",
+		.pHelp		= "Configure management"
+	},
 };
 
 FTM_DEBUG_CFG	_debugCfg = 
@@ -415,5 +422,11 @@ FTM_RET	FTLM_CONSOLE_switch(FTM_INT nArgc, FTM_CHAR_PTR pArgs[])
 		break;
 	}
 
+	return	FTM_RET_OK;
+}
+
+FTM_RET	FTLM_CONSOLE_save(FTM_INT nArgc, FTM_CHAR_PTR pArgs[])
+{
+	FTLM_API_CFG_save("test.conf");
 	return	FTM_RET_OK;
 }

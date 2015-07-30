@@ -67,6 +67,7 @@ typedef	struct
 	FTM_CHAR			pFileName[1024];
 	FTM_BOOL			bInit;
 
+	FTM_BYTE			bVersion[4];
 	FTM_MQTT_CONFIG		xMQTT;
 	FTLM_CLIENT_CFG		xClient;
 	FTM_LIST_PTR		pLightList;

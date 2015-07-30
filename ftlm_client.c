@@ -13,11 +13,6 @@
 #include "ftlm_client.h"
 #include "ftlm_client_msg.h"
 
-#undef	TRACE
-#define	TRACE(...) fprintf(stderr, ## __VA_ARGS__)
-#undef	ERROR
-#define	ERROR(...) fprintf(stderr, ## __VA_ARGS__)
-
 //static sem_t	xSemaphore;
 FTM_VOID_PTR FTLM_CLIENT_process(FTM_VOID_PTR pData);
 

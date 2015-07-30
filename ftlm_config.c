@@ -1,4 +1,5 @@
 #include <string.h>
+#include <stdlib.h>
 #include "ftm_types.h"
 #include "ftm_mem.h"
 #include "ftlm_config.h"
@@ -101,6 +102,7 @@ FTM_RET FTLM_CFG_load(FTLM_CFG_PTR pCfg, FTM_CHAR_PTR pFileName)
 {
 	config_t            xCfg;
 	config_setting_t    *pSection;
+	config_setting_t	*pVersion;
 
 	if ((pCfg == NULL) || (pFileName == NULL))
 	{
@@ -114,7 +116,31 @@ FTM_RET FTLM_CFG_load(FTLM_CFG_PTR pCfg, FTM_CHAR_PTR pFileName)
 			ERROR("Configuration loading failed.[FILE = %s]\n", pFileName);
 			return  FTM_RET_CONFIG_LOAD_FAILED;
 	}
+/*
+	pVersion = config_setting_get_member(pSection, "version");
+	if (pVersion != NULL)
+	{
+		FTM_INT			i;
+		FTM_CHAR		pBuff[32];
+		FTM_CHAR_PTR	pString;
+		FTM_CHAR_PTR	pToken;
+		FTM_CHAR_PTR	pSavePtr;
 
+		strncpy(pBuff, config_setting_get_string(pVersion), sizeof(pBuff)-1);	
+
+	
+		for (i = 0, pString= pBuff; i < 4 ; i++, pString = NULL) 
+		{
+			pToken = strtok_r(pString, ".", &pSavePtr);
+			if (pToken == NULL)
+			{
+				break;
+			}
+
+			pCfg->bVersion[i] = strtoul(pToken, NULL, 10);
+		}
+	}
+*/
 	pSection = config_lookup(&xCfg, "mqtt");
 	if (pSection)
 	{
@@ -142,7 +168,7 @@ FTM_RET FTLM_CFG_load(FTLM_CFG_PTR pCfg, FTM_CHAR_PTR pFileName)
 	}
 	else
 	{
-		printf("can't find server section\n");	
+		TRACE("can't find server section\n");	
 	}
 
 	pSection = config_lookup(&xCfg, "server");
@@ -169,7 +195,7 @@ FTM_RET FTLM_CFG_load(FTLM_CFG_PTR pCfg, FTM_CHAR_PTR pFileName)
 		}
 		else
 		{
-			printf("can't find ip\n");	
+			TRACE("can't find ip\n");	
 		}
 
 		pPort = config_setting_get_member(pSection, "port");
@@ -179,12 +205,12 @@ FTM_RET FTLM_CFG_load(FTLM_CFG_PTR pCfg, FTM_CHAR_PTR pFileName)
 		}
 		else
 		{
-			printf("can't find port\n");	
+			TRACE("can't find port\n");	
 		}
 	}
 	else
 	{
-		printf("can't find server section\n");	
+		TRACE("can't find server section\n");	
 	}
 
 	pSection = config_lookup(&xCfg, "config");
@@ -320,7 +346,7 @@ FTM_RET FTLM_CFG_load(FTLM_CFG_PTR pCfg, FTM_CHAR_PTR pFileName)
 				if (pGroup->pLightList == NULL)
 				{
 					FTM_MEM_free(pGroup);
-					printf("Error : Can't allocate memory!\n");
+					ERROR("Can't allocate memory!\n");
 					break;
 				}
 				FTM_LIST_setSeeker(pGroup->pLightList, FTLM_CFG_ID_seeker);
@@ -412,7 +438,7 @@ FTM_RET FTLM_CFG_load(FTLM_CFG_PTR pCfg, FTM_CHAR_PTR pFileName)
 				if (pSwitch->pGroupList == NULL)
 				{
 					FTM_MEM_free(pSwitch);
-					printf("Error : Can't allocate memory!\n");
+					ERROR("Can't allocate memory!\n");
 					break;
 				}
 
@@ -480,6 +506,62 @@ FTM_RET FTLM_CFG_save(FTLM_CFG_PTR pCfg, FTM_CHAR_PTR pFileName)
 	{
 		goto error;
 	}
+
+
+	pSection = config_setting_add(pRoot, "mqtt", CONFIG_TYPE_GROUP);
+	if (pSection != NULL)
+	{
+		config_setting_t	*pMember;
+
+		pMember = config_setting_add(pSection, "ip", CONFIG_TYPE_STRING);
+		if (pMember == NULL)
+		{
+			goto error;
+		}
+		config_setting_set_string(pMember, pCfg->xMQTT.pBrokerIP);
+
+		pMember = config_setting_add(pSection, "port", CONFIG_TYPE_INT);
+		if (pMember == NULL)
+		{
+			goto error;
+		}
+		config_setting_set_int(pMember, pCfg->xMQTT.usPort);
+
+		pMember = config_setting_add(pSection, "keepalive", CONFIG_TYPE_INT);
+		if (pMember == NULL)
+		{
+			goto error;
+		}
+		config_setting_set_int(pMember, pCfg->xMQTT.nKeepAlive);
+	}
+
+	pSection = config_setting_add(pRoot, "server", CONFIG_TYPE_GROUP);
+	if (pSection != NULL)
+	{
+		config_setting_t	*pMember;
+
+		pMember = config_setting_add(pSection, "ip", CONFIG_TYPE_STRING);
+		if (pMember == NULL)
+		{
+			goto error;
+		}
+		config_setting_set_string(pMember, pCfg->xClient.xServer.pIP);
+
+		pMember = config_setting_add(pSection, "enable", CONFIG_TYPE_INT);
+		if (pMember == NULL)
+		{
+			goto error;
+		}
+		config_setting_set_int(pMember, pCfg->xClient.bEnable);
+
+		pMember = config_setting_add(pSection, "port", CONFIG_TYPE_INT);
+		if (pMember == NULL)
+		{
+			goto error;
+		}
+		config_setting_set_int(pMember, pCfg->xClient.xServer.usPort);
+	}
+
 
 	pSection = config_setting_add(pRoot, "config", CONFIG_TYPE_GROUP);
 	if (pSection == NULL)

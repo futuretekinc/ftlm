@@ -270,24 +270,21 @@ FTM_RET	FTLM_LIGHT_set(FTLM_LIGHT_PTR pLight, unsigned char nLevel)
 {
 
 	ASSERT(pLight != NULL);
-	FTLM_lightCtrl(pLight, (FTM_ULONG)nLevel, 0, 0);
-
 	pLight->ulCmd	= nLevel;
-	pLight->ulLevel = 0;
-	pLight->ulTime  = 0;
+	FTLM_lightCtrl(pLight, pLight->ulCmd, pLight->ulLevel, pLight->ulTime);
 
 	return	FTM_RET_OK;
 }
 
 FTM_RET	FTLM_LIGHT_dim(FTLM_LIGHT_PTR pLight, unsigned char nLevel, unsigned char nTime)
 {
-
 	ASSERT(pLight != NULL);
-	FTLM_lightCtrl(pLight, 0, (FTM_ULONG)nLevel, (FTM_ULONG)nTime);
 
 	pLight->ulCmd	= 255;
 	pLight->ulLevel = nLevel;
 	pLight->ulTime  = nTime;
+	FTLM_lightCtrl(pLight, pLight->ulCmd, pLight->ulLevel, pLight->ulTime);
+
 
 	return	FTM_RET_OK;
 }
